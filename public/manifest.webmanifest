@@ -1,0 +1,18 @@
+{
+  "name": "OpenScribe Studio",
+  "short_name": "OpenScribe",
+  "description": "Estúdio offline-first de animação whiteboard com auto-vetorização e exportação MP4 via WebCodecs.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f3ef",
+  "theme_color": "#f4f3ef",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
