@@ -1,6 +1,13 @@
-import { ArrowDown, ArrowUp, Camera, Copy, Focus, Trash2 } from 'lucide-react';
+import { AlignCenter, ArrowDown, ArrowUp, Camera, Copy, Focus, RotateCcw, Trash2 } from 'lucide-react';
 import { traceImageUrlToVectors } from '../engine/imageTracer';
-import type { AnimationMode, HandwritingFont, ScribeElement, TraceConfig } from '../types/scribe';
+import type {
+  AnimationMode,
+  HandStyle,
+  HandwritingFont,
+  MoveDirection,
+  ScribeElement,
+  TraceConfig,
+} from '../types/scribe';
 
 interface InspectorPanelProps {
   element: ScribeElement | null;
@@ -15,6 +22,7 @@ interface InspectorPanelProps {
 
 export function InspectorPanel({
   element,
+  editCamera,
   onUpdateElement,
   onCaptureCameraForElement,
   onFocusElementCamera,
@@ -62,10 +70,10 @@ export function InspectorPanel({
           <button type="button" className="icon-btn-sm" onClick={() => onMoveOrder(element.id, 1)} title="Mover para depois">
             <ArrowDown size={14} />
           </button>
-          <button type="button" className="icon-btn-sm" onClick={() => onDuplicate(element.id)} title="Duplicar elemento">
+          <button type="button" className="icon-btn-sm" onClick={() => onDuplicate(element.id)} title="Duplicar elemento (Ctrl+D)">
             <Copy size={14} />
           </button>
-          <button type="button" className="icon-btn-sm danger" onClick={() => onDelete(element.id)} title="Excluir elemento">
+          <button type="button" className="icon-btn-sm danger" onClick={() => onDelete(element.id)} title="Excluir elemento (Del)">
             <Trash2 size={14} />
           </button>
         </div>
@@ -76,6 +84,7 @@ export function InspectorPanel({
           <div className="inspector-group">
             <h4>Conteúdo do Texto</h4>
             <textarea
+              id="inspector-text-input"
               className="studio-textarea"
               rows={3}
               value={element.text || ''}
@@ -127,6 +136,33 @@ export function InspectorPanel({
                 onChange={(e) => onUpdateElement(element.id, { fontSize: Number(e.target.value) })}
               />
             </label>
+
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={Boolean(element.textBgColor && element.textBgColor !== 'transparent')}
+                onChange={(e) =>
+                  onUpdateElement(element.id, {
+                    textBgColor: e.target.checked ? '#fef3c7' : 'transparent',
+                  })
+                }
+              />
+              <span>Cartão de destaque atrás do texto</span>
+            </label>
+
+            {element.textBgColor && element.textBgColor !== 'transparent' && (
+              <label className="field-label">
+                Cor do Cartão
+                <div className="color-input-wrap">
+                  <input
+                    type="color"
+                    value={element.textBgColor}
+                    onChange={(e) => onUpdateElement(element.id, { textBgColor: e.target.value })}
+                  />
+                  <span>{element.textBgColor}</span>
+                </div>
+              </label>
+            )}
           </div>
         )}
 
@@ -192,6 +228,7 @@ export function InspectorPanel({
           <label className="field-label">
             Modo de Entrada
             <select
+              id="inspector-anim-mode"
               className="studio-select"
               value={element.animationMode}
               onChange={(e) =>
@@ -199,9 +236,52 @@ export function InspectorPanel({
               }
             >
               <option value="draw">Desenhar com a Mão</option>
+              <option value="move-in">Mão Arrastando (Move-In)</option>
               <option value="fade">Surgir Suave (Fade)</option>
               <option value="pop">Pop / Zoom Elástico</option>
               <option value="slide-up">Deslizar de Baixo</option>
+            </select>
+          </label>
+
+          {element.animationMode === 'move-in' && (
+            <label className="field-label">
+              Direção do Move-In
+              <select
+                id="inspector-move-dir"
+                className="studio-select"
+                value={element.moveInFrom || 'right'}
+                onChange={(e) =>
+                  onUpdateElement(element.id, { moveInFrom: e.target.value as MoveDirection })
+                }
+              >
+                <option value="right">Puxar da Direita</option>
+                <option value="left">Puxar da Esquerda</option>
+                <option value="top">Descer de Cima</option>
+                <option value="bottom">Subir de Baixo</option>
+              </select>
+            </label>
+          )}
+
+          <label className="field-label">
+            Mão Nesta Cena
+            <select
+              id="inspector-hand-override"
+              className="studio-select"
+              value={element.handStyleOverride || 'inherit'}
+              onChange={(e) =>
+                onUpdateElement(element.id, {
+                  handStyleOverride: e.target.value as HandStyle | 'inherit',
+                })
+              }
+            >
+              <option value="inherit">Usar padrão do projeto</option>
+              <option value="realistic-pen">Caneta Fina</option>
+              <option value="marker">Marcador Whiteboard</option>
+              <option value="pencil">Lápis Grafite</option>
+              <option value="chalk">Giz de Lousa</option>
+              <option value="minimal-nib">Ponta Minimalista</option>
+              <option value="eraser">Borracha</option>
+              <option value="none">Sem Mão</option>
             </select>
           </label>
 
@@ -291,9 +371,41 @@ export function InspectorPanel({
         </div>
 
         <div className="inspector-group">
-          <h4>Câmera da Cena</h4>
+          <h4>Posição, Escala &amp; Câmera</h4>
+          <div className="meta-dims-line">
+            <span>
+              {Math.round(element.width)}×{Math.round(element.height)}px
+            </span>
+            <span>·</span>
+            <span>
+              X:{Math.round(element.x)} Y:{Math.round(element.y)}
+            </span>
+            <span>·</span>
+            <span>{Math.round(element.rotation)}°</span>
+          </div>
           <div className="btn-row">
             <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => onUpdateElement(element.id, { x: Math.round(editCamera.cx), y: Math.round(editCamera.cy) })}
+              title="Centralizar objeto na visualização atual"
+            >
+              <AlignCenter size={14} />
+              <span>Centralizar</span>
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => onUpdateElement(element.id, { rotation: 0 })}
+              title="Zerar ângulo de rotação"
+            >
+              <RotateCcw size={14} />
+              <span>0°</span>
+            </button>
+          </div>
+          <div className="btn-row">
+            <button
+              id="capture-camera-btn"
               type="button"
               className="btn-secondary"
               onClick={() => onCaptureCameraForElement(element.id)}
@@ -303,6 +415,7 @@ export function InspectorPanel({
               <span>Capturar Atual</span>
             </button>
             <button
+              id="focus-camera-btn"
               type="button"
               className="btn-secondary"
               onClick={() => onFocusElementCamera(element)}

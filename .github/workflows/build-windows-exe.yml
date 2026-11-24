@@ -1,0 +1,76 @@
+name: Build Optimized Windows EXE (Tauri v2)
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies and verify frontend
+        run: |
+          npm ci
+          npm test
+          npm run lint
+          npm run build
+
+      - name: Run Rust backend tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Build optimized Tauri v2 Windows binaries
+        run: npx --yes @tauri-apps/cli@^2 build
+
+      - name: Collect Windows EXE deliverables
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-out | Out-Null
+          Copy-Item "src-tauri/target/release/open-scribe.exe" "release-out/OpenScribe-Studio_0.2.0_x64-portable.exe"
+          $nsis = Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe" | Select-Object -First 1
+          if ($nsis) {
+            Copy-Item $nsis.FullName "release-out/OpenScribe-Studio_0.2.0_x64-setup.exe"
+          }
+          Get-ChildItem release-out | Format-Table Name, Length
+
+      - name: Upload EXE workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openscribe-windows-exe
+          path: release-out/*.exe
+
+      - name: Publish to GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "v0.2.0"
+          $exists = gh release view $tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag release-out/*.exe --title "OpenScribe Studio v0.2.0 (Windows x64)" --notes "Executáveis nativos otimizados em Tauri v2 (Rust + WebView2): versão portátil (portable .exe) e instalador NSIS (-setup.exe)."
+          } else {
+            gh release upload $tag release-out/*.exe --clobber
+          }

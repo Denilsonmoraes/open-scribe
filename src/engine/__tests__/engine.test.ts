@@ -12,6 +12,7 @@ import { generateStoryboardFromScript } from '../scriptGenerator';
 import { parseSvgToStrokes } from '../svgParser';
 import {
   buildTimelineSchedule,
+  computeFitAllCamera,
   evaluateCameraAtTime,
   fitElementsToVoiceDuration,
 } from '../timeline';
@@ -96,20 +97,21 @@ describe('SVG Parser Engine', () => {
 });
 
 describe('PNG/JPG Auto-Vectorizer Engine', () => {
-  it('traces synthetic black square silhouette into closed/continuous contour strokes', () => {
+  it('traces synthetic asymmetric shape without spurious outer border strokes', () => {
     const w = 64;
     const h = 64;
     const rgba = new Uint8ClampedArray(w * h * 4);
-    // White background
     rgba.fill(255);
-    // Draw solid dark square inside [16..48, 16..48]
-    for (let y = 16; y < 48; y++) {
-      for (let x = 16; x < 48; x++) {
-        const i = (y * w + x) * 4;
-        rgba[i] = 20;
-        rgba[i + 1] = 20;
-        rgba[i + 2] = 20;
-        rgba[i + 3] = 255;
+    // Top bar [14..50, 14..26] + Left bar [14..26, 14..50] -> empty bottom-right quadrant [36..50, 36..50]
+    for (let y = 14; y < 50; y++) {
+      for (let x = 14; x < 50; x++) {
+        if (y < 26 || x < 26) {
+          const i = (y * w + x) * 4;
+          rgba[i] = 20;
+          rgba[i + 1] = 20;
+          rgba[i + 2] = 20;
+          rgba[i + 3] = 255;
+        }
       }
     }
 
@@ -122,6 +124,10 @@ describe('PNG/JPG Auto-Vectorizer Engine', () => {
     });
     expect(traced.strokes.length).toBeGreaterThan(0);
     expect(traced.aspectRatio).toBeCloseTo(1);
+    const hasSpuriousBottomRightCorner = traced.strokes.some((s) =>
+      s.points.some((p) => p.x > 0.72 && p.y > 0.72),
+    );
+    expect(hasSpuriousBottomRightCorner).toBe(false);
   });
 
   it('skeletonizes lineart drawings into thin centerlines', () => {
@@ -129,7 +135,6 @@ describe('PNG/JPG Auto-Vectorizer Engine', () => {
     const h = 64;
     const rgba = new Uint8ClampedArray(w * h * 4);
     rgba.fill(255);
-    // Thick diagonal ink line
     for (let k = 10; k < 54; k++) {
       for (let dy = -2; dy <= 2; dy++) {
         for (let dx = -2; dx <= 2; dx++) {
@@ -177,6 +182,15 @@ describe('Timeline Scheduler & Script Storyboard', () => {
     const fitted = fitElementsToVoiceDuration(project.elements, 30);
     const { totalDuration } = buildTimelineSchedule({ ...project, elements: fitted });
     expect(totalDuration).toBeCloseTo(30, 0);
+  });
+
+  it('computes fit-all camera enclosing starter storyboard elements', () => {
+    const project = createStarterProject();
+    const cam = computeFitAllCamera(project);
+    expect(cam.zoom).toBeGreaterThan(0.25);
+    expect(cam.zoom).toBeLessThan(1.0);
+    expect(cam.cx).toBeGreaterThan(300);
+    expect(cam.cy).toBeGreaterThan(100);
   });
 
   it('generates paired icon + text storyboard from multiline script', () => {

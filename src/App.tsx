@@ -3,16 +3,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AssetSidebar, type SidebarTab } from './components/AssetSidebar';
 import { ExportModal } from './components/ExportModal';
 import { InspectorPanel } from './components/InspectorPanel';
+import { ProjectsModal } from './components/ProjectsModal';
 import { StageCanvas } from './components/StageCanvas';
 import { TimelineDock } from './components/TimelineDock';
 import { TopBar } from './components/TopBar';
 import type { VectorAssetPreset } from './data/assetLibrary';
 import { createBlankProject, createStarterProject } from './data/presets';
 import { generateStoryboardFromScript } from './engine/scriptGenerator';
-import { downloadBlob, loadProjectFromIndexedDb, saveProjectToIndexedDb } from './engine/storage';
+import {
+  downloadBlob,
+  isTauriRuntime,
+  loadProjectFromIndexedDb,
+  loadSavedProjectById,
+  saveProjectToIndexedDb,
+} from './engine/storage';
 import { parseSvgToStrokes } from './engine/svgParser';
 import {
   buildTimelineSchedule,
+  computeFitAllCamera,
   computeTargetCamera,
   fitElementsToVoiceDuration,
 } from './engine/timeline';
@@ -37,6 +45,14 @@ export default function App() {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [playheadTime, setPlayheadTime] = useState(0);
   const [exportOpen, setExportOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
+
+  const [saveState, setSaveState] = useState<'saved' | 'saving'>('saved');
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [saveTarget, setSaveTarget] = useState<'local-db' | 'desktop-disk'>(() =>
+    isTauriRuntime() ? 'desktop-disk' : 'local-db',
+  );
+  const hasHydratedRef = useRef(false);
 
   // Mobile responsive drawers
   const [mobileDrawer, setMobileDrawer] = useState<'none' | 'assets' | 'inspector'>('none');
@@ -48,27 +64,43 @@ export default function App() {
 
   const { totalDuration } = useMemo(() => buildTimelineSchedule(project), [project]);
 
-  // Restore saved project from IndexedDB on first mount
+  const persistNow = useCallback(async (targetProject: ScribeProject) => {
+    setSaveState('saving');
+    const res = await saveProjectToIndexedDb(targetProject);
+    setSaveState('saved');
+    setLastSavedAt(res.savedAt);
+    setSaveTarget(res.target);
+  }, []);
+
+  // Restore active saved project on mount
   useEffect(() => {
     let alive = true;
-    loadProjectFromIndexedDb().then((saved) => {
-      if (alive && saved && saved.elements) {
+    loadProjectFromIndexedDb().then(async (saved) => {
+      if (!alive) return;
+      if (saved && Array.isArray(saved.elements)) {
         setProject(saved);
         setSelectedId(saved.elements[0]?.id ?? null);
+        setLastSavedAt(saved.updatedAt || Date.now());
+      } else {
+        await saveProjectToIndexedDb(createStarterProject());
+        if (alive) setLastSavedAt(Date.now());
       }
+      hasHydratedRef.current = true;
     });
     return () => {
       alive = false;
     };
   }, []);
 
-  // Debounced auto-save to IndexedDB
+  // Fast debounced auto-save to IndexedDB / Tauri local disk
   useEffect(() => {
+    if (!hasHydratedRef.current) return;
+    setSaveState('saving');
     const t = window.setTimeout(() => {
-      saveProjectToIndexedDb(project);
-    }, 500);
+      void persistNow(project);
+    }, 240);
     return () => clearTimeout(t);
-  }, [project]);
+  }, [project, persistNow]);
 
   const commitProject = useCallback((updater: (prev: ScribeProject) => ScribeProject) => {
     setProject((prev) => {
@@ -77,6 +109,11 @@ export default function App() {
       return updater(prev);
     });
   }, []);
+
+  const checkpointHistory = useCallback(() => {
+    setHistory((h) => [...h.slice(-29), project]);
+    setFuture([]);
+  }, [project]);
 
   const handleUndo = useCallback(() => {
     setHistory((h) => {
@@ -195,21 +232,39 @@ export default function App() {
   }, []);
 
   const handleUpdateMeta = (patch: Partial<ScribeProject>) => {
-    commitProject((prev) => ({ ...prev, ...patch }));
+    commitProject((prev) => {
+      let elements = prev.elements;
+      if (patch.boardTheme && patch.boardTheme !== prev.boardTheme) {
+        const wasDark = prev.boardTheme === 'chalkboard' || prev.boardTheme === 'blueprint';
+        const nowDark = patch.boardTheme === 'chalkboard' || patch.boardTheme === 'blueprint';
+        if (wasDark !== nowDark) {
+          elements = prev.elements.map((el) => {
+            const lower = el.strokeColor.toLowerCase();
+            if (nowDark && (lower === '#18181b' || lower === '#000000' || lower === '#111827')) {
+              return { ...el, strokeColor: '#f8fafc' };
+            }
+            if (!nowDark && (lower === '#f8fafc' || lower === '#ffffff')) {
+              return { ...el, strokeColor: '#18181b' };
+            }
+            return el;
+          });
+        }
+      }
+      return { ...prev, ...patch, elements };
+    });
   };
 
-  const handleUpdateElement = (
-    id: string,
-    patch: Partial<ScribeElement>,
-    recordHistory = true,
-  ) => {
-    const apply = (prev: ScribeProject) => ({
-      ...prev,
-      elements: prev.elements.map((el) => (el.id === id ? { ...el, ...patch } : el)),
-    });
-    if (recordHistory) commitProject(apply);
-    else setProject(apply);
-  };
+  const handleUpdateElement = useCallback(
+    (id: string, patch: Partial<ScribeElement>, recordHistory = true) => {
+      const apply = (prev: ScribeProject) => ({
+        ...prev,
+        elements: prev.elements.map((el) => (el.id === id ? { ...el, ...patch } : el)),
+      });
+      if (recordHistory) commitProject(apply);
+      else setProject(apply);
+    },
+    [commitProject],
+  );
 
   const nextSpawnPosition = () => {
     const count = project.elements.length;
@@ -408,19 +463,22 @@ export default function App() {
     });
   };
 
-  const handleDuplicate = (id: string) => {
-    const src = project.elements.find((e) => e.id === id);
-    if (!src) return;
-    const copy: ScribeElement = {
-      ...src,
-      id: `el-copy-${Date.now()}`,
-      name: `${src.name} (cópia)`,
-      x: src.x + 50,
-      y: src.y + 40,
-    };
-    commitProject((prev) => ({ ...prev, elements: [...prev.elements, copy] }));
-    setSelectedId(copy.id);
-  };
+  const handleDuplicate = useCallback(
+    (id: string) => {
+      const src = project.elements.find((e) => e.id === id);
+      if (!src) return;
+      const copy: ScribeElement = {
+        ...src,
+        id: `el-copy-${Date.now()}`,
+        name: `${src.name} (cópia)`,
+        x: src.x + 50,
+        y: src.y + 40,
+      };
+      commitProject((prev) => ({ ...prev, elements: [...prev.elements, copy] }));
+      setSelectedId(copy.id);
+    },
+    [project.elements, commitProject],
+  );
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -439,20 +497,47 @@ export default function App() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        void persistNow(project);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) handleRedo();
         else handleUndo();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
         handleRedo();
-      } else if (e.key === 'Delete' && selectedId) {
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && selectedId) {
+        e.preventDefault();
+        handleDuplicate(selectedId);
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
+        e.preventDefault();
         handleDelete(selectedId);
+      } else if (
+        selectedId &&
+        ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
+      ) {
+        const el = project.elements.find((item) => item.id === selectedId);
+        if (!el) return;
+        e.preventDefault();
+        const step = e.shiftKey ? 20 : 5;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        handleUpdateElement(selectedId, { x: el.x + dx, y: el.y + dy }, true);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedId, handleUndo, handleRedo, handleDelete]);
+  }, [
+    project,
+    selectedId,
+    persistNow,
+    handleUndo,
+    handleRedo,
+    handleDuplicate,
+    handleDelete,
+    handleUpdateElement,
+  ]);
 
   const selectedElement = useMemo(
     () => project.elements.find((e) => e.id === selectedId) ?? null,
@@ -470,13 +555,60 @@ export default function App() {
       const txt = await file.text();
       const parsed = JSON.parse(txt) as ScribeProject;
       if (!parsed || !Array.isArray(parsed.elements)) throw new Error('Formato inválido');
-      commitProject(() => parsed);
-      setSelectedId(parsed.elements[0]?.id ?? null);
+      const normalized: ScribeProject = {
+        ...parsed,
+        id: parsed.id || `imported-${Date.now()}`,
+        updatedAt: Date.now(),
+      };
+      setProject(normalized);
+      setHistory([]);
+      setFuture([]);
+      setSelectedId(normalized.elements[0]?.id ?? null);
       setPlayheadTime(0);
       setIsScrubbing(false);
+      await persistNow(normalized);
     } catch {
       alert('Arquivo de projeto OpenScribe inválido.');
     }
+  };
+
+  const handleSwitchSavedProject = async (id: string) => {
+    const loaded = await loadSavedProjectById(id);
+    if (!loaded) return;
+    setProject(loaded);
+    setHistory([]);
+    setFuture([]);
+    setSelectedId(loaded.elements[0]?.id ?? null);
+    setEditCamera({ cx: 0, cy: 0, zoom: 1 });
+    setPlayheadTime(0);
+    setIsScrubbing(false);
+    setLastSavedAt(loaded.updatedAt || Date.now());
+  };
+
+  const handleCreateBlank = async () => {
+    await persistNow(project);
+    const blank = createBlankProject();
+    setProject(blank);
+    setHistory([]);
+    setFuture([]);
+    setSelectedId(null);
+    setEditCamera({ cx: 0, cy: 0, zoom: 1 });
+    setIsScrubbing(false);
+    setPlayheadTime(0);
+    await persistNow(blank);
+  };
+
+  const handleCreateDemo = async () => {
+    await persistNow(project);
+    const demo = createStarterProject(true);
+    setProject(demo);
+    setHistory([]);
+    setFuture([]);
+    setSelectedId(demo.elements[0]?.id ?? null);
+    setEditCamera({ cx: 0, cy: 0, zoom: 1 });
+    setIsScrubbing(false);
+    setPlayheadTime(0);
+    await persistNow(demo);
   };
 
   const handleSyncToVoice = () => {
@@ -494,27 +626,18 @@ export default function App() {
         isPlaying={isPlaying}
         canUndo={history.length > 0}
         canRedo={future.length > 0}
+        saveState={saveState}
+        lastSavedAt={lastSavedAt}
+        saveTarget={saveTarget}
         onUpdateProjectMeta={handleUpdateMeta}
         onTogglePlay={togglePlay}
         onStop={handleStopToEdit}
         onUndo={handleUndo}
         onRedo={handleRedo}
-        onLoadDemo={() => {
-          const demo = createStarterProject();
-          commitProject(() => demo);
-          setSelectedId(demo.elements[0]?.id ?? null);
-          setEditCamera({ cx: 0, cy: 0, zoom: 1 });
-          setIsScrubbing(false);
-          setPlayheadTime(0);
-        }}
-        onNewBlank={() => {
-          const blank = createBlankProject();
-          commitProject(() => blank);
-          setSelectedId(null);
-          setEditCamera({ cx: 0, cy: 0, zoom: 1 });
-          setIsScrubbing(false);
-          setPlayheadTime(0);
-        }}
+        onSaveNow={() => void persistNow(project)}
+        onOpenProjectsModal={() => setProjectsOpen(true)}
+        onLoadDemo={() => void handleCreateDemo()}
+        onNewBlank={() => void handleCreateBlank()}
         onExportJson={handleExportJson}
         onImportJson={handleImportJson}
         onOpenExportModal={() => {
@@ -554,11 +677,17 @@ export default function App() {
             if (isScrubbing && !isPlaying) setIsScrubbing(false);
           }}
           onUpdateElement={handleUpdateElement}
+          onGestureStart={checkpointHistory}
           onTogglePlay={togglePlay}
           onResetView={() => {
             setIsPlaying(false);
             setIsScrubbing(false);
             setEditCamera({ cx: 0, cy: 0, zoom: 1 });
+          }}
+          onFitAll={() => {
+            setIsPlaying(false);
+            setIsScrubbing(false);
+            setEditCamera(computeFitAllCamera(project));
           }}
         />
 
@@ -622,6 +751,17 @@ export default function App() {
       />
 
       {exportOpen && <ExportModal project={project} onClose={() => setExportOpen(false)} />}
+
+      {projectsOpen && (
+        <ProjectsModal
+          activeProjectId={project.id}
+          onSelectProject={(id) => void handleSwitchSavedProject(id)}
+          onCreateBlank={() => void handleCreateBlank()}
+          onLoadDemo={() => void handleCreateDemo()}
+          onImportJson={handleImportJson}
+          onClose={() => setProjectsOpen(false)}
+        />
+      )}
     </div>
   );
 }

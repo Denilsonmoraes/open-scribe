@@ -1,7 +1,10 @@
 import {
+  CheckCircle2,
   Download,
   FilePlus2,
+  FolderKanban,
   FolderOpen,
+  HardDriveDownload,
   Monitor,
   Pause,
   Play,
@@ -20,11 +23,16 @@ interface TopBarProps {
   isPlaying: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  saveState: 'saved' | 'saving';
+  lastSavedAt: number | null;
+  saveTarget: 'local-db' | 'desktop-disk';
   onUpdateProjectMeta: (patch: Partial<ScribeProject>) => void;
   onTogglePlay: () => void;
   onStop: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onSaveNow: () => void;
+  onOpenProjectsModal: () => void;
   onLoadDemo: () => void;
   onNewBlank: () => void;
   onExportJson: () => void;
@@ -37,17 +45,33 @@ export function TopBar({
   isPlaying,
   canUndo,
   canRedo,
+  saveState,
+  lastSavedAt,
+  saveTarget,
   onUpdateProjectMeta,
   onTogglePlay,
   onStop,
   onUndo,
   onRedo,
+  onSaveNow,
+  onOpenProjectsModal,
   onLoadDemo,
   onNewBlank,
   onExportJson,
   onImportJson,
   onOpenExportModal,
 }: TopBarProps) {
+  const savedLabel =
+    saveState === 'saving'
+      ? 'Salvando...'
+      : lastSavedAt
+        ? `${saveTarget === 'desktop-disk' ? 'Disco' : 'Local'} ${new Date(lastSavedAt).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          })}`
+        : 'Local';
+
   return (
     <header className="studio-topbar">
       <div className="topbar-left">
@@ -66,10 +90,22 @@ export function TopBar({
           placeholder="Nome do projeto"
         />
 
+        <button
+          id="save-status-pill"
+          type="button"
+          className={`save-pill ${saveState}`}
+          onClick={onSaveNow}
+          title="Salvar agora localmente (Ctrl+S)"
+        >
+          <CheckCircle2 size={12} />
+          <span>{savedLabel}</span>
+        </button>
+
         <div className="topbar-divider" />
 
         <div className="icon-btn-group" aria-label="Histórico">
           <button
+            id="undo-btn"
             type="button"
             className="icon-btn"
             onClick={onUndo}
@@ -79,6 +115,7 @@ export function TopBar({
             <Undo2 size={16} />
           </button>
           <button
+            id="redo-btn"
             type="button"
             className="icon-btn"
             onClick={onRedo}
@@ -157,18 +194,31 @@ export function TopBar({
 
       <div className="topbar-right">
         <div className="icon-btn-group">
-          <button type="button" className="icon-btn" onClick={onNewBlank} title="Novo projeto em branco">
+          <button
+            id="open-projects-btn"
+            type="button"
+            className="icon-btn"
+            onClick={onOpenProjectsModal}
+            title="Meus projetos salvos"
+          >
+            <FolderKanban size={16} />
+          </button>
+          <button id="new-blank-btn" type="button" className="icon-btn" onClick={onNewBlank} title="Novo projeto em branco">
             <FilePlus2 size={16} />
           </button>
-          <button type="button" className="icon-btn" onClick={onLoadDemo} title="Carregar cena demo">
+          <button id="load-demo-btn" type="button" className="icon-btn" onClick={onLoadDemo} title="Carregar cena demo">
             <Sparkles size={16} />
           </button>
-          <button type="button" className="icon-btn" onClick={onExportJson} title="Salvar backup (.json)">
+          <button id="save-now-btn" type="button" className="icon-btn" onClick={onSaveNow} title="Salvar projeto localmente (Ctrl+S)">
             <Save size={16} />
           </button>
-          <label className="icon-btn" title="Abrir backup (.json)">
+          <button id="export-json-btn" type="button" className="icon-btn" onClick={onExportJson} title="Baixar backup (.openscribe.json)">
+            <HardDriveDownload size={16} />
+          </button>
+          <label className="icon-btn" title="Abrir arquivo (.openscribe.json)">
             <FolderOpen size={16} />
             <input
+              id="import-json-input"
               type="file"
               accept=".json,application/json"
               hidden

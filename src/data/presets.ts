@@ -83,15 +83,15 @@ function makeTextElement(opts: {
   };
 }
 
-export function createStarterProject(): ScribeProject {
+export function createStarterProject(freshId = false): ScribeProject {
   const cam1 = { cx: 0, cy: 0, zoom: 1.05, autoFit: false };
   const cam2 = { cx: 1120, cy: 0, zoom: 1.05, autoFit: false };
   const cam3 = { cx: 1120, cy: 680, zoom: 1.05, autoFit: false };
   const camOverview = { cx: 560, cy: 340, zoom: 0.56, autoFit: false };
 
   return {
-    id: 'demo-openscribe-1',
-    title: 'Apresentação Whiteboard Turbo',
+    id: freshId ? `demo-${Date.now()}` : 'demo-openscribe-1',
+    title: freshId ? 'Novo Projeto Demo' : 'Apresentação Whiteboard Turbo',
     updatedAt: Date.now(),
     boardTheme: 'whiteboard',
     backgroundColor: '#faf9f5',

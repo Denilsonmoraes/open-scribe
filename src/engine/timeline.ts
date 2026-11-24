@@ -137,3 +137,39 @@ export function fitElementsToVoiceDuration(
     transitionDuration: i === 0 ? 0 : Number(Math.max(0.2, weights[i].trans * scale).toFixed(2)),
   }));
 }
+
+/**
+ * Computes an edit/preview camera framing every element on the infinite whiteboard.
+ */
+export function computeFitAllCamera(project: ScribeProject): {
+  cx: number;
+  cy: number;
+  zoom: number;
+} {
+  if (project.elements.length === 0) return { cx: 0, cy: 0, zoom: 1 };
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const el of project.elements) {
+    const halfW = el.width / 2;
+    const halfH = el.height / 2;
+    minX = Math.min(minX, el.x - halfW);
+    maxX = Math.max(maxX, el.x + halfW);
+    minY = Math.min(minY, el.y - halfH);
+    maxY = Math.max(maxY, el.y + halfH);
+  }
+
+  const stage = getStageDimensions(project.aspectRatio);
+  const spanW = Math.max(120, maxX - minX + 120);
+  const spanH = Math.max(120, maxY - minY + 120);
+  const zoom = Math.max(0.22, Math.min(1.6, Math.min(stage.width / spanW, stage.height / spanH)));
+
+  return {
+    cx: Math.round((minX + maxX) / 2),
+    cy: Math.round((minY + maxY) / 2),
+    zoom: Number(zoom.toFixed(2)),
+  };
+}

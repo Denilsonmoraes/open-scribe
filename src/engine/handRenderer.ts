@@ -282,3 +282,52 @@ function drawHandFingersFront(ctx: CanvasRenderingContext2D, offsetX: number, of
 
   ctx.restore();
 }
+
+/**
+ * Draws an open/pinching studio hand pulling or placing an object during Move-In transitions.
+ */
+export function drawDraggingHand(
+  ctx: CanvasRenderingContext2D,
+  gripX: number,
+  gripY: number,
+  from: 'left' | 'right' | 'top' | 'bottom' = 'right',
+  scale = 1,
+): void {
+  ctx.save();
+  ctx.translate(gripX, gripY);
+  ctx.scale(scale, scale);
+
+  const rotMap = {
+    right: 0,
+    left: Math.PI * 0.85,
+    top: -Math.PI * 0.48,
+    bottom: Math.PI * 0.35,
+  } as const;
+  ctx.rotate(rotMap[from]);
+
+  ctx.shadowColor = 'rgba(15, 23, 42, 0.24)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetX = 8;
+  ctx.shadowOffsetY = 12;
+
+  drawHandPalmBehind(ctx, 18, 6);
+
+  // Pinching thumb & finger resting right on the carried object edge at (0,0)
+  ctx.shadowColor = 'transparent';
+  ctx.fillStyle = '#f5c7ab';
+  ctx.strokeStyle = 'rgba(120, 72, 48, 0.28)';
+  ctx.lineWidth = 1.2;
+
+  // Reaching index + middle fingers
+  ctx.beginPath();
+  ctx.roundRect(-8, -14, 46, 15, 7);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.roundRect(-2, 2, 42, 14, 7);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.restore();
+}

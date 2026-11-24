@@ -1,7 +1,7 @@
 import { CheckCircle2, Download, Film, Loader2, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { exportProjectVideo } from '../engine/exporter';
-import { downloadBlob } from '../engine/storage';
+import { downloadBlob, saveVideoOutput } from '../engine/storage';
 import { buildTimelineSchedule } from '../engine/timeline';
 import type { ExportConfig, ExportProgress, ScribeProject } from '../types/scribe';
 
@@ -22,6 +22,7 @@ export function ExportModal({ project, onClose }: ExportModalProps) {
     blob: Blob;
     filename: string;
     method: string;
+    savedPath?: string;
   } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -38,8 +39,13 @@ export function ExportModal({ project, onClose }: ExportModalProps) {
 
     try {
       const out = await exportProjectVideo(project, config, setProgress, ac.signal);
-      setResult({ blob: out.blob, filename: out.filename, method: out.method });
-      downloadBlob(out.blob, out.filename);
+      const saved = await saveVideoOutput(out.blob, out.filename);
+      setResult({
+        blob: out.blob,
+        filename: out.filename,
+        method: out.method,
+        savedPath: saved.savedPath,
+      });
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Erro ao exportar vídeo.');
     } finally {
@@ -156,6 +162,7 @@ export function ExportModal({ project, onClose }: ExportModalProps) {
               <CheckCircle2 size={18} />
               <div>
                 <strong>{result.filename}</strong> ({(result.blob.size / (1024 * 1024)).toFixed(2)} MB)
+                {result.savedPath && <div className="saved-path-note">Salvo em: {result.savedPath}</div>}
               </div>
               <button
                 type="button"

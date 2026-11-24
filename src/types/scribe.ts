@@ -25,7 +25,9 @@ export type HandStyle =
   | 'eraser'
   | 'none';
 
-export type AnimationMode = 'draw' | 'fade' | 'pop' | 'slide-up';
+export type AnimationMode = 'draw' | 'move-in' | 'fade' | 'pop' | 'slide-up';
+
+export type MoveDirection = 'left' | 'right' | 'top' | 'bottom';
 
 export type AspectRatio = '16:9' | '9:16' | '1:1';
 
@@ -58,6 +60,16 @@ export interface TraceConfig {
   revealOriginal: boolean;
 }
 
+export interface ProjectSummary {
+  id: string;
+  title: string;
+  updatedAt: number;
+  elementCount: number;
+  aspectRatio: AspectRatio;
+  boardTheme: BoardTheme;
+  source: 'local-db' | 'desktop-disk';
+}
+
 export interface ScribeElement {
   id: string;
   name: string;
@@ -75,6 +87,7 @@ export interface ScribeElement {
   pauseDuration: number;
   transitionDuration: number;
   animationMode: AnimationMode;
+  moveInFrom?: MoveDirection;
 
   /** Styling */
   strokeColor: string;
@@ -82,6 +95,7 @@ export interface ScribeElement {
   fillReveal: boolean;
   fillColor: string;
   opacity: number;
+  handStyleOverride?: HandStyle | 'inherit';
 
   /** Camera framing */
   camera: ElementCamera;
@@ -99,6 +113,7 @@ export interface ScribeElement {
   fontFamily?: HandwritingFont;
   fontSize?: number;
   textAlign?: 'left' | 'center' | 'right';
+  textBgColor?: string;
 }
 
 export interface AudioTrackData {

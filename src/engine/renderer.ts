@@ -1,6 +1,7 @@
 import type {
   BoardTheme,
   HandStyle,
+  MoveDirection,
   Point2D,
   ScheduledElement,
   ScribeElement,
@@ -8,7 +9,7 @@ import type {
   VectorStroke,
 } from '../types/scribe';
 import { sampleStrokeAtLength, totalStrokesLength } from './geometry';
-import { drawAnimatedHand } from './handRenderer';
+import { drawAnimatedHand, drawDraggingHand } from './handRenderer';
 import { buildTimelineSchedule, easeInOutCubic, evaluateCameraAtTime, getStageDimensions } from './timeline';
 
 const rasterCache = new Map<string, HTMLImageElement>();
@@ -189,6 +190,22 @@ function renderTextElement(
   const lineWidths = lines.map((l) => Math.max(12, ctx.measureText(l).width));
   const totalWidth = lineWidths.reduce((a, b) => a + b, 0);
 
+  if (el.textBgColor && el.textBgColor !== 'transparent') {
+    const maxLineW = Math.max(...lineWidths, 48);
+    const padX = 20;
+    const padY = 12;
+    const boxW = Math.min(el.width, maxLineW + padX * 2);
+    const boxH = totalBlockH + padY * 2;
+    const bx = align === 'left' ? -el.width / 2 - 4 : align === 'right' ? el.width / 2 - boxW + 4 : -boxW / 2;
+    ctx.save();
+    ctx.globalAlpha *= Math.min(1, progress * 3);
+    ctx.fillStyle = el.textBgColor;
+    ctx.beginPath();
+    ctx.roundRect(bx, -boxH / 2, boxW, boxH, 12);
+    ctx.fill();
+    ctx.restore();
+  }
+
   let consumed = 0;
   let penLocal: Point2D | null = null;
   const targetCharsWidth = progress * totalWidth;
@@ -235,6 +252,7 @@ function renderVectorElement(
   el: ScribeElement,
   progress: number, // 0..1
   onImageLoad?: () => void,
+  isLightPaper = true,
 ): Point2D | null {
   const strokes = el.strokes;
   const hasRaster = Boolean(el.rasterDataUrl);
@@ -251,6 +269,7 @@ function renderVectorElement(
   if (img && el.fillReveal && fillAlpha > 0) {
     ctx.save();
     ctx.globalAlpha *= fillAlpha;
+    if (isLightPaper) ctx.globalCompositeOperation = 'multiply';
     ctx.drawImage(img, -el.width / 2, -el.height / 2, el.width, el.height);
     ctx.restore();
   }
@@ -260,6 +279,7 @@ function renderVectorElement(
     if (img) {
       ctx.save();
       ctx.globalAlpha *= progress;
+      if (isLightPaper) ctx.globalCompositeOperation = 'multiply';
       ctx.drawImage(img, -el.width / 2, -el.height / 2, el.width, el.height);
       ctx.restore();
     }
@@ -354,20 +374,54 @@ function renderVectorElement(
   return penWorld;
 }
 
+interface ElementRenderOutput {
+  kind: 'draw' | 'drag';
+  point: Point2D;
+  moveFrom?: MoveDirection;
+}
+
 function renderSingleElement(
   ctx: CanvasRenderingContext2D,
   el: ScribeElement,
   drawProgress: number,
   onImageLoad?: () => void,
-): Point2D | null {
+  isLightPaper = true,
+): ElementRenderOutput | null {
   ctx.save();
 
+  let offsetX = 0;
   let offsetY = 0;
   let scale = 1;
   let alpha = el.opacity;
   let effectiveDraw = drawProgress;
+  let dragOutput: ElementRenderOutput | null = null;
 
-  if (el.animationMode === 'fade') {
+  if (el.animationMode === 'move-in') {
+    const from: MoveDirection = el.moveInFrom || 'right';
+    const slideT = Math.min(1, drawProgress / 0.84);
+    const eased = easeInOutCubic(slideT);
+    const travel = 460 * (1 - eased);
+    if (from === 'right') offsetX = travel;
+    else if (from === 'left') offsetX = -travel;
+    else if (from === 'top') offsetY = -travel;
+    else offsetY = travel;
+
+    effectiveDraw = 1;
+    alpha *= Math.min(1, drawProgress * 4.5);
+
+    if (drawProgress < 0.99) {
+      const retract = drawProgress > 0.84 ? ((drawProgress - 0.84) / 0.16) * 240 : 0;
+      const gx =
+        el.x +
+        offsetX +
+        (from === 'right' ? el.width * 0.28 + retract : from === 'left' ? -el.width * 0.28 - retract : 0);
+      const gy =
+        el.y +
+        offsetY +
+        (from === 'bottom' ? el.height * 0.28 + retract : from === 'top' ? -el.height * 0.28 - retract : 8);
+      dragOutput = { kind: 'drag', point: { x: gx, y: gy }, moveFrom: from };
+    }
+  } else if (el.animationMode === 'fade') {
     alpha *= easeInOutCubic(drawProgress);
     effectiveDraw = 1;
   } else if (el.animationMode === 'pop') {
@@ -383,7 +437,7 @@ function renderSingleElement(
   }
 
   ctx.globalAlpha = alpha;
-  ctx.translate(el.x, el.y + offsetY);
+  ctx.translate(el.x + offsetX, el.y + offsetY);
   ctx.rotate((el.rotation * Math.PI) / 180);
   ctx.scale(scale, scale);
 
@@ -391,11 +445,13 @@ function renderSingleElement(
   if (el.type === 'text') {
     penWorld = renderTextElement(ctx, el, effectiveDraw);
   } else {
-    penWorld = renderVectorElement(ctx, el, effectiveDraw, onImageLoad);
+    penWorld = renderVectorElement(ctx, el, effectiveDraw, onImageLoad, isLightPaper);
   }
 
   ctx.restore();
-  return el.animationMode === 'draw' ? penWorld : null;
+  if (el.animationMode === 'move-in') return dragOutput;
+  if (el.animationMode === 'draw' && penWorld) return { kind: 'draw', point: penWorld };
+  return null;
 }
 
 export interface RenderFrameOptions {
@@ -440,7 +496,16 @@ export function renderProjectFrame(
   ctx.scale(effectiveZoom, effectiveZoom);
   ctx.translate(-cam.cx, -cam.cy);
 
-  let activeHand: { point: Point2D; color: string; style: HandStyle; prog: number } | null = null;
+  let activeHand: {
+    kind: 'draw' | 'drag';
+    point: Point2D;
+    color: string;
+    style: HandStyle;
+    prog: number;
+    moveFrom?: MoveDirection;
+  } | null = null;
+
+  const isLightPaper = project.boardTheme === 'whiteboard' || project.boardTheme === 'dotgrid';
 
   if (mode === 'edit') {
     // Subtle stage reference frame around world origin (0, 0)
@@ -455,7 +520,7 @@ export function renderProjectFrame(
     ctx.restore();
 
     for (const el of project.elements) {
-      renderSingleElement(ctx, el, 1, onImageLoad);
+      renderSingleElement(ctx, el, 1, onImageLoad, isLightPaper);
     }
   } else {
     for (const item of items) {
@@ -463,14 +528,20 @@ export function renderProjectFrame(
 
       const drawDur = Math.max(0.15, item.element.drawDuration);
       const prog = Math.max(0, Math.min(1, (time - item.startTime) / drawDur));
-      const penPt = renderSingleElement(ctx, item.element, prog, onImageLoad);
+      const handOut = renderSingleElement(ctx, item.element, prog, onImageLoad, isLightPaper);
 
-      if (penPt && prog < 1) {
+      if (handOut && prog < 1) {
+        const chosenStyle =
+          item.element.handStyleOverride && item.element.handStyleOverride !== 'inherit'
+            ? item.element.handStyleOverride
+            : project.defaultHandStyle;
         activeHand = {
-          point: penPt,
+          kind: handOut.kind,
+          point: handOut.point,
           color: item.element.strokeColor,
-          style: project.defaultHandStyle,
+          style: chosenStyle,
           prog,
+          moveFrom: handOut.moveFrom,
         };
       }
     }
@@ -486,13 +557,17 @@ export function renderProjectFrame(
     }
   }
 
-  // Animated drawing hand in screen space
-  if (activeHand && mode !== 'edit') {
+  // Animated drawing/dragging hand in screen space
+  if (activeHand && mode !== 'edit' && activeHand.style !== 'none') {
     const sx = width / 2 + (activeHand.point.x - cam.cx) * effectiveZoom;
     const sy = height / 2 + (activeHand.point.y - cam.cy) * effectiveZoom;
     const handScale = Math.max(0.62, Math.min(1.35, width / 1180));
-    const tilt = Math.sin(activeHand.prog * Math.PI * 16);
-    drawAnimatedHand(ctx, activeHand.style, sx, sy, tilt, activeHand.color, handScale);
+    if (activeHand.kind === 'drag') {
+      drawDraggingHand(ctx, sx, sy, activeHand.moveFrom || 'right', handScale);
+    } else {
+      const tilt = Math.sin(activeHand.prog * Math.PI * 16);
+      drawAnimatedHand(ctx, activeHand.style, sx, sy, tilt, activeHand.color, handScale);
+    }
   }
 }
 

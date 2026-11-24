@@ -1,4 +1,14 @@
-import { Hand, LocateFixed, MousePointer2, Pause, Play, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import {
+  Hand,
+  LocateFixed,
+  Maximize2,
+  MousePointer2,
+  Pause,
+  Play,
+  RotateCcw,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
 import { hitTestElement, renderProjectFrame, screenToWorld } from '../engine/renderer';
 import { getStageDimensions } from '../engine/timeline';
@@ -15,25 +25,35 @@ interface StageCanvasProps {
   onChangeEditCamera: (cam: { cx: number; cy: number; zoom: number }) => void;
   onSelectElement: (id: string | null) => void;
   onUpdateElement: (id: string, patch: Partial<ScribeElement>, recordHistory?: boolean) => void;
+  onGestureStart: () => void;
   onTogglePlay: () => void;
   onResetView: () => void;
+  onFitAll: () => void;
 }
 
 type DragAction =
   | { kind: 'pan'; startX: number; startY: number; origCx: number; origCy: number }
-  | { kind: 'move'; id: string; startWX: number; startWY: number; origX: number; origY: number }
+  | {
+      kind: 'move';
+      id: string;
+      startWX: number;
+      startWY: number;
+      origX: number;
+      origY: number;
+      recorded: boolean;
+    }
   | {
       kind: 'resize';
       id: string;
       corner: 'nw' | 'ne' | 'se' | 'sw';
       startWX: number;
       startWY: number;
-      origX: number;
-      origY: number;
       origW: number;
       origH: number;
+      rotation: number;
+      recorded: boolean;
     }
-  | { kind: 'rotate'; id: string; centerX: number; centerY: number };
+  | { kind: 'rotate'; id: string; centerX: number; centerY: number; recorded: boolean };
 
 export function StageCanvas({
   project,
@@ -46,8 +66,10 @@ export function StageCanvas({
   onChangeEditCamera,
   onSelectElement,
   onUpdateElement,
+  onGestureStart,
   onTogglePlay,
   onResetView,
+  onFitAll,
 }: StageCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -145,11 +167,11 @@ export function StageCanvas({
     const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
     const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
 
-    if (Math.hypot(lx - 0, ly - (-sh / 2 - 26)) <= 13) return 'rotate';
-    if (Math.hypot(lx - -sw / 2, ly - -sh / 2) <= 13) return 'nw';
-    if (Math.hypot(lx - sw / 2, ly - -sh / 2) <= 13) return 'ne';
-    if (Math.hypot(lx - sw / 2, ly - sh / 2) <= 13) return 'se';
-    if (Math.hypot(lx - -sw / 2, ly - sh / 2) <= 13) return 'sw';
+    if (Math.hypot(lx - 0, ly - (-sh / 2 - 26)) <= 14) return 'rotate';
+    if (Math.hypot(lx - -sw / 2, ly - -sh / 2) <= 14) return 'nw';
+    if (Math.hypot(lx - sw / 2, ly - -sh / 2) <= 14) return 'ne';
+    if (Math.hypot(lx - sw / 2, ly - sh / 2) <= 14) return 'se';
+    if (Math.hypot(lx - -sw / 2, ly - sh / 2) <= 14) return 'sw';
     return null;
   };
 
@@ -178,6 +200,7 @@ export function StageCanvas({
           id: selected.id,
           centerX: selected.x,
           centerY: selected.y,
+          recorded: false,
         };
         return;
       }
@@ -189,10 +212,10 @@ export function StageCanvas({
           corner: handle,
           startWX: wpt.x,
           startWY: wpt.y,
-          origX: selected.x,
-          origY: selected.y,
           origW: selected.width,
           origH: selected.height,
+          rotation: selected.rotation,
+          recorded: false,
         };
         return;
       }
@@ -210,6 +233,7 @@ export function StageCanvas({
         startWY: wpt.y,
         origX: hit.x,
         origY: hit.y,
+        recorded: false,
       };
     } else {
       onSelectElement(null);
@@ -244,6 +268,11 @@ export function StageCanvas({
 
     const wpt = screenToWorld(sx, sy, size.width, size.height, project.aspectRatio, editCamera);
 
+    if (!drag.recorded) {
+      onGestureStart();
+      drag.recorded = true;
+    }
+
     if (drag.kind === 'move') {
       const dx = wpt.x - drag.startWX;
       const dy = wpt.y - drag.startWY;
@@ -253,12 +282,15 @@ export function StageCanvas({
         false,
       );
     } else if (drag.kind === 'resize') {
-      const dx = wpt.x - drag.startWX;
-      const dy = wpt.y - drag.startWY;
+      const rawDx = wpt.x - drag.startWX;
+      const rawDy = wpt.y - drag.startWY;
+      const rad = (-drag.rotation * Math.PI) / 180;
+      const ldx = rawDx * Math.cos(rad) - rawDy * Math.sin(rad);
+      const ldy = rawDx * Math.sin(rad) + rawDy * Math.cos(rad);
       const signX = drag.corner.includes('e') ? 1 : -1;
       const signY = drag.corner.includes('s') ? 1 : -1;
       const aspect = drag.origW / Math.max(10, drag.origH);
-      const deltaW = (dx * signX + dy * signY * aspect) * 0.7;
+      const deltaW = (ldx * signX + ldy * signY * aspect) * 0.7;
       const newW = Math.max(48, Math.round(drag.origW + deltaW));
       const newH = Math.max(36, Math.round(newW / aspect));
       onUpdateElement(drag.id, { width: newW, height: newH }, false);
@@ -269,13 +301,6 @@ export function StageCanvas({
   };
 
   const handlePointerUp = () => {
-    if (dragRef.current && dragRef.current.kind !== 'pan') {
-      // Commit snapshot once at drag end
-      const target = project.elements.find((el) => el.id === (dragRef.current as { id: string }).id);
-      if (target) {
-        onUpdateElement(target.id, { x: target.x, y: target.y, width: target.width, height: target.height, rotation: target.rotation }, true);
-      }
-    }
     dragRef.current = null;
   };
 
@@ -319,6 +344,7 @@ export function StageCanvas({
           </button>
           <span className="hud-sep" />
           <button
+            id="zoom-out-btn"
             type="button"
             className="hud-btn"
             onClick={() =>
@@ -333,6 +359,7 @@ export function StageCanvas({
           </button>
           <span className="hud-zoom-readout">{Math.round(editCamera.zoom * 100)}%</span>
           <button
+            id="zoom-in-btn"
             type="button"
             className="hud-btn"
             onClick={() =>
@@ -345,7 +372,10 @@ export function StageCanvas({
           >
             <ZoomIn size={14} />
           </button>
-          <button type="button" className="hud-btn" onClick={onResetView} title="Centralizar enquadramento">
+          <button id="fit-all-btn" type="button" className="hud-btn" onClick={onFitAll} title="Enquadrar todos os elementos">
+            <Maximize2 size={14} />
+          </button>
+          <button id="reset-view-btn" type="button" className="hud-btn" onClick={onResetView} title="Centralizar na origem (100%)">
             <LocateFixed size={14} />
           </button>
         </div>
@@ -368,7 +398,7 @@ export function StageCanvas({
         </button>
 
         {isScrubbing && !isPlaying && (
-          <button type="button" className="hud-btn-exit" onClick={onResetView} title="Voltar ao modo de edição">
+          <button id="exit-preview-btn" type="button" className="hud-btn-exit" onClick={onResetView} title="Voltar ao modo de edição">
             <RotateCcw size={13} />
             <span>Editar Quadro</span>
           </button>

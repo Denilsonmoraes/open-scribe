@@ -32,19 +32,29 @@ async function pickSupportedVideoCodec(
   return null;
 }
 
-async function isAacSupported(sampleRate: number, channels: number): Promise<boolean> {
-  if (typeof AudioEncoder === 'undefined' || typeof AudioData === 'undefined') return false;
-  try {
-    const res = await AudioEncoder.isConfigSupported({
-      codec: 'mp4a.40.2',
-      sampleRate,
-      numberOfChannels: channels,
-      bitrate: 128_000,
-    });
-    return Boolean(res.supported);
-  } catch {
-    return false;
+async function pickSupportedAudioCodec(
+  sampleRate: number,
+  channels: number,
+): Promise<{ muxCodec: 'aac' | 'opus'; webCodec: string } | null> {
+  if (typeof AudioEncoder === 'undefined' || typeof AudioData === 'undefined') return null;
+  const candidates: Array<{ muxCodec: 'aac' | 'opus'; webCodec: string }> = [
+    { muxCodec: 'aac', webCodec: 'mp4a.40.2' },
+    { muxCodec: 'opus', webCodec: 'opus' },
+  ];
+  for (const cand of candidates) {
+    try {
+      const res = await AudioEncoder.isConfigSupported({
+        codec: cand.webCodec,
+        sampleRate,
+        numberOfChannels: channels,
+        bitrate: 128_000,
+      });
+      if (res.supported) return cand;
+    } catch {
+      // Try next codec
+    }
   }
+  return null;
 }
 
 export function getExportPixelDimensions(
@@ -140,7 +150,7 @@ async function exportViaWebCodecsMp4(
   const mixedAudio = hasAudio
     ? await mixProjectAudioBuffer(project.voiceover, project.music, totalDuration, 48000)
     : null;
-  const canEncodeAac = mixedAudio ? await isAacSupported(48000, 2) : false;
+  const audioCodec = mixedAudio ? await pickSupportedAudioCodec(48000, 2) : null;
 
   const target = new ArrayBufferTarget();
   const muxer = new Muxer({
@@ -152,9 +162,9 @@ async function exportViaWebCodecsMp4(
       frameRate: fps,
     },
     audio:
-      mixedAudio && canEncodeAac
+      mixedAudio && audioCodec
         ? {
-            codec: 'aac',
+            codec: audioCodec.muxCodec,
             numberOfChannels: 2,
             sampleRate: 48000,
           }
@@ -205,17 +215,23 @@ async function exportViaWebCodecsMp4(
     videoEncoder.encode(vf, { keyFrame });
     vf.close();
 
-    // Backpressure + UI yield every few frames
-    if (videoEncoder.encodeQueueSize > 8) {
-      await new Promise((r) => setTimeout(r, 4));
-    } else if (frame % 4 === 0) {
+    // True bounded backpressure prevents encoder overload on slower CPUs/mobile GPUs
+    while (videoEncoder.encodeQueueSize > 4) {
+      if (signal?.aborted) {
+        videoEncoder.close();
+        throw new Error('Exportação cancelada.');
+      }
+      if (encoderError) throw encoderError;
+      await new Promise((r) => setTimeout(r, 8));
+    }
+    if (frame % 4 === 0) {
       await new Promise((r) => setTimeout(r, 0));
     }
 
     if (frame % 3 === 0 || frame === totalFrames - 1) {
       onProgress({
         phase: 'rendering',
-        progress: 0.05 + (frame / totalFrames) * (mixedAudio && canEncodeAac ? 0.78 : 0.9),
+        progress: 0.05 + (frame / totalFrames) * (mixedAudio && audioCodec ? 0.78 : 0.9),
         currentFrame: frame + 1,
         totalFrames,
         message: `Renderizando quadro ${frame + 1} de ${totalFrames} (${width}x${height} MP4)...`,
@@ -226,13 +242,13 @@ async function exportViaWebCodecsMp4(
   await videoEncoder.flush();
   videoEncoder.close();
 
-  if (mixedAudio && canEncodeAac) {
+  if (mixedAudio && audioCodec) {
     onProgress({
       phase: 'encoding-audio',
       progress: 0.86,
       currentFrame: totalFrames,
       totalFrames,
-      message: 'Codificando áudio AAC e sincronizando trilha...',
+      message: `Codificando áudio (${audioCodec.muxCodec.toUpperCase()}) e sincronizando trilha...`,
     });
 
     const audioEncoder = new AudioEncoder({
@@ -242,13 +258,13 @@ async function exportViaWebCodecsMp4(
       },
     });
     audioEncoder.configure({
-      codec: 'mp4a.40.2',
+      codec: audioCodec.webCodec,
       numberOfChannels: 2,
       sampleRate: 48000,
       bitrate: 128_000,
     });
 
-    const chunkFrames = 1024;
+    const chunkFrames = 960; // 20ms @ 48kHz — clean frame size for both Opus and AAC
     const ch0 = mixedAudio.getChannelData(0);
     const ch1 = mixedAudio.numberOfChannels > 1 ? mixedAudio.getChannelData(1) : ch0;
 
@@ -268,6 +284,11 @@ async function exportViaWebCodecsMp4(
       });
       audioEncoder.encode(ad);
       ad.close();
+
+      while (audioEncoder.encodeQueueSize > 8) {
+        if (encoderError) throw encoderError;
+        await new Promise((r) => setTimeout(r, 4));
+      }
     }
 
     await audioEncoder.flush();

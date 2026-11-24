@@ -499,8 +499,8 @@ export function AssetSidebar({
               <div className="btn-row">
                 {!isRecording ? (
                   <button type="button" className="btn-teal" onClick={startVoiceRecording}>
-                    <Mic size={15} />
-                    <span>Gravar Microfone</span>
+                    <Mic size={14} />
+                    <span>Gravar Voz</span>
                   </button>
                 ) : (
                   <button type="button" className="btn-danger" onClick={stopVoiceRecording}>
