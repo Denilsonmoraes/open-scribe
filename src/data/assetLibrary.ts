@@ -1,7 +1,13 @@
 export interface VectorAssetPreset {
   id: string;
   name: string;
-  category: 'Ideias & Negócios' | 'Tech & 3D' | 'Pessoas & Ação' | 'Diagramas & Setas' | 'Engenharia';
+  category:
+    | 'Ideias & Negócios'
+    | 'Marketing & Educação'
+    | 'Tech & 3D'
+    | 'Pessoas & Ação'
+    | 'Diagramas & Setas'
+    | 'Engenharia';
   defaultStrokeColor: string;
   defaultFillColor: string;
   svg: string;
@@ -283,6 +289,390 @@ export const VECTOR_ASSETS: VectorAssetPreset[] = [
     defaultFillColor: '#fed7aa',
     svg: `<svg viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg">
       <path d="M10 34 C38 26 78 24 110 30 M22 44 C48 39 76 38 98 42" stroke="#ea580c" stroke-width="4.5"/>
+    </svg>`,
+  },
+  // --- Ideias & Negócios (Premium Pack) ---
+  {
+    id: 'money-bag',
+    name: 'Saco de Dinheiro / Lucro',
+    category: 'Ideias & Negócios',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#bbf7d0',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M44 20 L76 20 L68 34 L52 34 Z" fill="#fde68a" stroke="#18181b" stroke-width="3"/>
+      <path d="M48 34 C28 46 20 68 24 88 C28 102 44 108 60 108 C76 108 92 102 96 88 C100 68 92 46 72 34 Z" fill="#bbf7d0" stroke="#18181b" stroke-width="3"/>
+      <path d="M45 34 L75 34" stroke="#ea580c" stroke-width="4"/>
+      <path d="M60 50 L60 92 M69 58 C69 53 51 53 51 60 C51 67 69 68 69 76 C69 84 51 84 51 78" stroke="#0f766e" stroke-width="3.5"/>
+    </svg>`,
+  },
+  {
+    id: 'handshake',
+    name: 'Aperto de Mão / Parceria',
+    category: 'Ideias & Negócios',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fed7aa',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 46 L28 46 L34 78 L8 78 Z" fill="#bfdbfe" stroke="#18181b" stroke-width="3"/>
+      <path d="M112 46 L92 46 L86 78 L112 78 Z" fill="#bbf7d0" stroke="#18181b" stroke-width="3"/>
+      <path d="M28 50 L50 42 L68 50 L92 48 L88 76 L72 86 L46 84 L32 74 Z" fill="#fed7aa" stroke="#18181b" stroke-width="3"/>
+      <path d="M46 60 L64 74 M54 56 L72 70 M62 52 L78 65" stroke="#18181b" stroke-width="2.5"/>
+      <path d="M60 20 L60 32 M44 24 L50 34 M76 24 L70 34" stroke="#ea580c" stroke-width="2.8"/>
+    </svg>`,
+  },
+  {
+    id: 'funnel-sales',
+    name: 'Funil de Vendas',
+    category: 'Ideias & Negócios',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#bae6fd',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="16,22 104,22 86,46 34,46" fill="#dbeafe" stroke="#18181b" stroke-width="3"/>
+      <polygon points="34,46 86,46 72,70 48,70" fill="#bae6fd" stroke="#18181b" stroke-width="3"/>
+      <polygon points="48,70 72,70 68,94 52,94" fill="#86efac" stroke="#18181b" stroke-width="3"/>
+      <circle cx="60" cy="105" r="7" fill="#fde047" stroke="#18181b" stroke-width="2.5"/>
+      <path d="M36 12 L42 18 M60 8 L60 18 M84 12 L78 18" stroke="#ea580c" stroke-width="2.8"/>
+    </svg>`,
+  },
+  {
+    id: 'calendar-plan',
+    name: 'Agenda / Cronograma',
+    category: 'Ideias & Negócios',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fef3c7',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="18" y="24" width="84" height="80" rx="8" fill="#ffffff" stroke="#18181b" stroke-width="3"/>
+      <rect x="18" y="24" width="84" height="22" rx="6" fill="#fed7aa" stroke="#18181b" stroke-width="3"/>
+      <path d="M38 14 L38 30 M82 14 L82 30" stroke="#18181b" stroke-width="4"/>
+      <path d="M32 60 L44 60 M54 60 L66 60 M76 60 L88 60 M32 76 L44 76 M54 76 L66 76 M32 90 L44 90" stroke="#64748b" stroke-width="3"/>
+      <path d="M72 78 L80 86 L94 70" stroke="#0f766e" stroke-width="3.5"/>
+    </svg>`,
+  },
+  {
+    id: 'crown-vip',
+    name: 'Coroa / Liderança VIP',
+    category: 'Ideias & Negócios',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fde047',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 84 L22 36 L44 58 L60 28 L76 58 L98 36 L104 84 Z" fill="#fde047" stroke="#18181b" stroke-width="3"/>
+      <rect x="16" y="84" width="88" height="14" rx="4" fill="#fbbf24" stroke="#18181b" stroke-width="3"/>
+      <circle cx="22" cy="34" r="5" fill="#ea580c" stroke="#18181b" stroke-width="2"/>
+      <circle cx="60" cy="25" r="6" fill="#ea580c" stroke="#18181b" stroke-width="2"/>
+      <circle cx="98" cy="34" r="5" fill="#ea580c" stroke="#18181b" stroke-width="2"/>
+      <circle cx="60" cy="70" r="6" fill="#ef4444" stroke="#18181b" stroke-width="2"/>
+    </svg>`,
+  },
+  {
+    id: 'wallet-card',
+    name: 'Cartão & Pagamento',
+    category: 'Ideias & Negócios',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#ccfbf1',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="14" y="28" width="92" height="62" rx="8" fill="#ccfbf1" stroke="#18181b" stroke-width="3"/>
+      <rect x="14" y="42" width="92" height="12" fill="#18181b" stroke="#18181b" stroke-width="2"/>
+      <rect x="24" y="62" width="20" height="14" rx="2" fill="#fde047" stroke="#18181b" stroke-width="2"/>
+      <path d="M54 68 L92 68 M54 78 L78 78" stroke="#0f766e" stroke-width="3"/>
+    </svg>`,
+  },
+  // --- Marketing & Educação ---
+  {
+    id: 'megaphone',
+    name: 'Megafone / Campanha',
+    category: 'Marketing & Educação',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fed7aa',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22 48 L44 48 L86 24 L86 86 L44 64 L22 64 Z" fill="#fed7aa" stroke="#18181b" stroke-width="3"/>
+      <path d="M32 64 L40 94 L52 92 L46 64" fill="#e2e8f0" stroke="#18181b" stroke-width="3"/>
+      <path d="M44 48 L44 64" stroke="#18181b" stroke-width="3"/>
+      <path d="M96 42 L110 34 M98 55 L114 55 M96 68 L110 76" stroke="#ea580c" stroke-width="3.5"/>
+    </svg>`,
+  },
+  {
+    id: 'video-play',
+    name: 'Vídeo / Player YouTube',
+    category: 'Marketing & Educação',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fecaca',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="12" y="24" width="96" height="64" rx="14" fill="#fee2e2" stroke="#18181b" stroke-width="3"/>
+      <polygon points="50,40 50,72 78,56" fill="#ef4444" stroke="#18181b" stroke-width="3"/>
+      <path d="M18 100 L102 100" stroke="#94a3b8" stroke-width="4"/>
+      <path d="M18 100 L56 100" stroke="#ea580c" stroke-width="4"/>
+      <circle cx="56" cy="100" r="5" fill="#ea580c" stroke="#18181b" stroke-width="2"/>
+    </svg>`,
+  },
+  {
+    id: 'book-open',
+    name: 'Livro Aberto / Curso',
+    category: 'Marketing & Educação',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fef9c3',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 30 C32 24 48 28 60 36 L60 94 C48 86 32 84 14 88 Z" fill="#fef9c3" stroke="#18181b" stroke-width="3"/>
+      <path d="M106 30 C88 24 72 28 60 36 L60 94 C72 86 88 84 106 88 Z" fill="#fffbeb" stroke="#18181b" stroke-width="3"/>
+      <path d="M24 46 L50 48 M24 58 L50 60 M24 70 L46 72" stroke="#64748b" stroke-width="2.5"/>
+      <path d="M70 48 L96 46 M70 60 L96 58 M70 72 L92 70" stroke="#64748b" stroke-width="2.5"/>
+    </svg>`,
+  },
+  {
+    id: 'graduation-cap',
+    name: 'Formatura / Ensino',
+    category: 'Marketing & Educação',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#dbeafe',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="60,22 110,46 60,70 10,46" fill="#dbeafe" stroke="#18181b" stroke-width="3"/>
+      <path d="M30 56 L30 82 C44 92 76 92 90 82 L90 56" fill="#bfdbfe" stroke="#18181b" stroke-width="3"/>
+      <path d="M102 50 L102 82 M96 86 L102 82 L108 86" stroke="#ea580c" stroke-width="3"/>
+    </svg>`,
+  },
+  {
+    id: 'magnet-leads',
+    name: 'Ímã de Clientes / Leads',
+    category: 'Marketing & Educação',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fca5a5',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M26 24 L26 66 C26 88 42 102 60 102 C78 102 94 88 94 66 L94 24 L74 24 L74 66 C74 76 68 82 60 82 C52 82 46 76 46 66 L46 24 Z" fill="#fca5a5" stroke="#18181b" stroke-width="3"/>
+      <rect x="26" y="24" width="20" height="16" fill="#e2e8f0" stroke="#18181b" stroke-width="3"/>
+      <rect x="74" y="24" width="20" height="16" fill="#e2e8f0" stroke="#18181b" stroke-width="3"/>
+      <path d="M34 10 L36 17 M60 8 L60 16 M86 10 L84 17" stroke="#ea580c" stroke-width="3"/>
+    </svg>`,
+  },
+  {
+    id: 'star-rating',
+    name: 'Estrela / Avaliação 5★',
+    category: 'Marketing & Educação',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fde047',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="60,14 73,42 104,46 81,67 87,98 60,83 33,98 39,67 16,46 47,42" fill="#fde047" stroke="#18181b" stroke-width="3"/>
+      <path d="M60 32 L66 48 L82 50" stroke="#ea580c" stroke-width="2.5"/>
+    </svg>`,
+  },
+  // --- Tech & 3D (Premium Pack) ---
+  {
+    id: 'ai-brain',
+    name: 'IA / Cérebro Neural',
+    category: 'Tech & 3D',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#e9d5ff',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M58 24 C42 22 30 32 30 46 C20 50 18 66 28 74 C28 88 42 96 58 94 Z" fill="#f3e8ff" stroke="#18181b" stroke-width="3"/>
+      <path d="M62 24 C78 22 90 32 90 46 C100 50 102 66 92 74 C92 88 78 96 62 94 Z" fill="#dbeafe" stroke="#18181b" stroke-width="3"/>
+      <circle cx="42" cy="46" r="4" fill="#7c3aed" stroke="#7c3aed" stroke-width="2"/>
+      <circle cx="44" cy="70" r="4" fill="#7c3aed" stroke="#7c3aed" stroke-width="2"/>
+      <circle cx="78" cy="46" r="4" fill="#0284c7" stroke="#0284c7" stroke-width="2"/>
+      <circle cx="76" cy="70" r="4" fill="#0284c7" stroke="#0284c7" stroke-width="2"/>
+      <path d="M42 46 L78 46 M44 70 L76 70 M42 46 L76 70 M78 46 L44 70" stroke="#6366f1" stroke-width="2"/>
+    </svg>`,
+  },
+  {
+    id: 'laptop-code',
+    name: 'Notebook / Programação',
+    category: 'Tech & 3D',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#e0f2fe',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="22" width="80" height="54" rx="5" fill="#e0f2fe" stroke="#18181b" stroke-width="3"/>
+      <path d="M10 82 L110 82 L102 94 L18 94 Z" fill="#cbd5e1" stroke="#18181b" stroke-width="3"/>
+      <path d="M46 40 L34 49 L46 58 M74 40 L86 49 L74 58 M64 36 L56 62" stroke="#0f766e" stroke-width="3.2"/>
+    </svg>`,
+  },
+  {
+    id: 'shield-security',
+    name: 'Escudo / Segurança Digital',
+    category: 'Tech & 3D',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#bbf7d0',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M60 14 L98 28 L94 64 C90 86 76 98 60 106 C44 98 30 86 26 64 L22 28 Z" fill="#bbf7d0" stroke="#18181b" stroke-width="3"/>
+      <rect x="46" y="54" width="28" height="24" rx="4" fill="#ffffff" stroke="#18181b" stroke-width="2.8"/>
+      <path d="M52 54 L52 44 C52 38 68 38 68 44 L68 54" stroke="#18181b" stroke-width="2.8"/>
+      <circle cx="60" cy="66" r="3" fill="#0f766e" stroke="#0f766e" stroke-width="2"/>
+    </svg>`,
+  },
+  {
+    id: 'robot-assistant',
+    name: 'Robô / Automação',
+    category: 'Tech & 3D',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#e2e8f0',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M60 14 L60 28" stroke="#18181b" stroke-width="3"/>
+      <circle cx="60" cy="12" r="5" fill="#ea580c" stroke="#18181b" stroke-width="2.5"/>
+      <rect x="26" y="28" width="68" height="48" rx="12" fill="#e2e8f0" stroke="#18181b" stroke-width="3"/>
+      <circle cx="46" cy="48" r="7" fill="#38bdf8" stroke="#18181b" stroke-width="2.5"/>
+      <circle cx="74" cy="48" r="7" fill="#38bdf8" stroke="#18181b" stroke-width="2.5"/>
+      <path d="M46 64 L74 64" stroke="#18181b" stroke-width="3"/>
+      <path d="M16 44 L26 44 M94 44 L104 44 M38 76 L34 104 L86 104 L82 76" fill="#cbd5e1" stroke="#18181b" stroke-width="3"/>
+    </svg>`,
+  },
+  // --- Pessoas & Ação (Premium Pack) ---
+  {
+    id: 'person-celebrating',
+    name: 'Pessoa Comemorando',
+    category: 'Pessoas & Ação',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fef08a',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="60" cy="28" r="14" fill="#fde68a" stroke="#18181b" stroke-width="3"/>
+      <path d="M44 50 L76 50 L72 86 L48 86 Z" fill="#bbf7d0" stroke="#18181b" stroke-width="3"/>
+      <path d="M44 54 L20 26 M76 54 L100 26" stroke="#18181b" stroke-width="3.5"/>
+      <path d="M52 86 L44 110 M68 86 L76 110" stroke="#18181b" stroke-width="3.5"/>
+      <path d="M28 14 L34 18 M92 14 L86 18 M60 4 L60 10" stroke="#ea580c" stroke-width="3"/>
+    </svg>`,
+  },
+  {
+    id: 'person-working',
+    name: 'Trabalhando no PC',
+    category: 'Pessoas & Ação',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#dbeafe',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="38" cy="30" r="13" fill="#fde68a" stroke="#18181b" stroke-width="3"/>
+      <path d="M18 82 C18 60 26 48 38 48 C50 48 56 60 56 82" fill="#dbeafe" stroke="#18181b" stroke-width="3"/>
+      <path d="M42 64 L66 72" stroke="#18181b" stroke-width="3"/>
+      <polygon points="72,44 102,44 96,76 66,76" fill="#e2e8f0" stroke="#18181b" stroke-width="3"/>
+      <path d="M10 82 L110 82 M20 82 L20 106 M100 82 L100 106" stroke="#18181b" stroke-width="3.5"/>
+    </svg>`,
+  },
+  {
+    id: 'customer-chat',
+    name: 'Atendimento / Conversa',
+    category: 'Pessoas & Ação',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#ccfbf1',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="30" cy="48" r="12" fill="#fde68a" stroke="#18181b" stroke-width="3"/>
+      <path d="M14 96 C14 74 20 66 30 66 C40 66 46 74 46 96" fill="#bfdbfe" stroke="#18181b" stroke-width="3"/>
+      <circle cx="90" cy="48" r="12" fill="#fde68a" stroke="#18181b" stroke-width="3"/>
+      <path d="M74 96 C74 74 80 66 90 66 C100 66 106 74 106 96" fill="#fed7aa" stroke="#18181b" stroke-width="3"/>
+      <rect x="42" y="14" width="36" height="24" rx="6" fill="#ccfbf1" stroke="#0f766e" stroke-width="2.8"/>
+      <path d="M50 24 L70 24 M50 31 L64 31" stroke="#0f766e" stroke-width="2.5"/>
+    </svg>`,
+  },
+  {
+    id: 'runner-fast',
+    name: 'Velocidade / Agilidade',
+    category: 'Pessoas & Ação',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fed7aa',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="76" cy="24" r="11" fill="#fde68a" stroke="#18181b" stroke-width="3"/>
+      <path d="M68 38 L52 66 L76 76 L68 104" stroke="#18181b" stroke-width="4"/>
+      <path d="M52 66 L30 92 M62 46 L94 46 M60 48 L38 56" stroke="#18181b" stroke-width="3.5"/>
+      <path d="M10 38 L34 38 M6 54 L26 54 M14 70 L32 70" stroke="#ea580c" stroke-width="3"/>
+    </svg>`,
+  },
+  // --- Engenharia (Premium Pack) ---
+  {
+    id: 'crane-construction',
+    name: 'Guindaste / Obra Civil',
+    category: 'Engenharia',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fde047',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M30 106 L30 24 L42 24 L42 106" fill="#fde047" stroke="#18181b" stroke-width="3"/>
+      <path d="M12 34 L106 34 L106 24 L12 24 Z" fill="#facc15" stroke="#18181b" stroke-width="3"/>
+      <path d="M36 12 L102 24 M36 12 L16 24" stroke="#18181b" stroke-width="2.5"/>
+      <path d="M88 34 L88 68 M80 68 L96 68 L96 86 L80 86 Z" fill="#fed7aa" stroke="#ea580c" stroke-width="3"/>
+      <path d="M14 106 L64 106" stroke="#18181b" stroke-width="4"/>
+    </svg>`,
+  },
+  {
+    id: 'compass-drafting',
+    name: 'Compasso & Esquadro',
+    category: 'Engenharia',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#e0f2fe',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="18,98 18,28 88,98" fill="#e0f2fe" stroke="#18181b" stroke-width="3"/>
+      <polygon points="30,86 30,54 62,86" fill="#ffffff" stroke="#18181b" stroke-width="2.2"/>
+      <circle cx="72" cy="24" r="7" fill="#fed7aa" stroke="#18181b" stroke-width="2.8"/>
+      <path d="M68 30 L48 92 M76 30 L98 92 M54 66 C66 72 80 72 92 66" stroke="#ea580c" stroke-width="3"/>
+    </svg>`,
+  },
+  {
+    id: 'building-tower',
+    name: 'Edifício / Arquitetura',
+    category: 'Engenharia',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#dbeafe',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <rect x="24" y="20" width="46" height="84" fill="#dbeafe" stroke="#18181b" stroke-width="3"/>
+      <rect x="70" y="46" width="28" height="58" fill="#e2e8f0" stroke="#18181b" stroke-width="3"/>
+      <path d="M34 32 L42 32 M52 32 L60 32 M34 46 L42 46 M52 46 L60 46 M34 60 L42 60 M52 60 L60 60 M34 74 L42 74 M52 74 L60 74" stroke="#0284c7" stroke-width="3"/>
+      <path d="M78 58 L90 58 M78 72 L90 72 M78 86 L90 86 M10 104 L110 104" stroke="#18181b" stroke-width="3"/>
+    </svg>`,
+  },
+  {
+    id: 'solar-panel',
+    name: 'Energia Solar / Sustentável',
+    category: 'Engenharia',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#bae6fd',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="92" cy="26" r="12" fill="#fde047" stroke="#ea580c" stroke-width="2.8"/>
+      <polygon points="24,48 90,48 102,88 12,88" fill="#bae6fd" stroke="#18181b" stroke-width="3"/>
+      <path d="M46 48 L42 88 M68 48 L72 88 M18 68 L96 68" stroke="#0284c7" stroke-width="2.4"/>
+      <path d="M57 88 L57 104 M38 104 L76 104" stroke="#18181b" stroke-width="3.5"/>
+    </svg>`,
+  },
+  // --- Diagramas & Setas (Premium Pack) ---
+  {
+    id: 'mindmap-diagram',
+    name: 'Mapa Mental / Conexões',
+    category: 'Diagramas & Setas',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fef3c7',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="60" cy="60" r="16" fill="#fef08a" stroke="#18181b" stroke-width="3"/>
+      <circle cx="22" cy="26" r="11" fill="#dbeafe" stroke="#18181b" stroke-width="2.8"/>
+      <circle cx="98" cy="26" r="11" fill="#bbf7d0" stroke="#18181b" stroke-width="2.8"/>
+      <circle cx="22" cy="94" r="11" fill="#fed7aa" stroke="#18181b" stroke-width="2.8"/>
+      <circle cx="98" cy="94" r="11" fill="#f3e8ff" stroke="#18181b" stroke-width="2.8"/>
+      <path d="M48 48 L30 34 M72 48 L90 34 M48 72 L30 86 M72 72 L90 86" stroke="#0f766e" stroke-width="2.8"/>
+    </svg>`,
+  },
+  {
+    id: 'cycle-loop',
+    name: 'Ciclo Contínuo (3 Passos)',
+    category: 'Diagramas & Setas',
+    defaultStrokeColor: '#0f766e',
+    defaultFillColor: '#ccfbf1',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <path d="M36 28 C52 16 74 18 88 32" stroke="#0f766e" stroke-width="4"/>
+      <path d="M78 20 L90 33 L74 36" stroke="#0f766e" stroke-width="3.5"/>
+      <path d="M96 50 C102 70 92 90 74 98" stroke="#ea580c" stroke-width="4"/>
+      <path d="M88 94 L72 99 L78 84" stroke="#ea580c" stroke-width="3.5"/>
+      <path d="M52 100 C32 94 20 76 24 54" stroke="#0284c7" stroke-width="4"/>
+      <path d="M16 64 L24 51 L34 62" stroke="#0284c7" stroke-width="3.5"/>
+    </svg>`,
+  },
+  {
+    id: 'warning-alert',
+    name: 'Alerta / Atenção',
+    category: 'Diagramas & Setas',
+    defaultStrokeColor: '#18181b',
+    defaultFillColor: '#fef08a',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="60,14 108,98 12,98" fill="#fef08a" stroke="#18181b" stroke-width="3.5"/>
+      <path d="M60 42 L60 72" stroke="#ea580c" stroke-width="5"/>
+      <circle cx="60" cy="84" r="3.5" fill="#ea580c" stroke="#ea580c" stroke-width="2"/>
+    </svg>`,
+  },
+  {
+    id: 'starburst-callout',
+    name: 'Selo Destaque / Oferta',
+    category: 'Diagramas & Setas',
+    defaultStrokeColor: '#ea580c',
+    defaultFillColor: '#ffedd5',
+    svg: `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="60,8 72,26 94,18 92,40 112,50 96,66 106,88 84,90 78,112 60,98 42,112 36,90 14,88 24,66 8,50 28,40 26,18 48,26" fill="#ffedd5" stroke="#ea580c" stroke-width="3"/>
+      <path d="M40 60 L54 74 L82 46" stroke="#ea580c" stroke-width="4.5"/>
     </svg>`,
   },
 ];

@@ -182,9 +182,9 @@ export function TopBar({
           aria-label="Estilo da mão e caneta"
           title="Estilo da mão"
         >
-          <option value="realistic-pen">Mão + Caneta Fina</option>
-          <option value="marker">Mão + Marcador</option>
-          <option value="pencil">Mão + Lápis</option>
+          <option value="realistic-pen">Mão Real · Caneta</option>
+          <option value="marker">Mão Real · Marcador</option>
+          <option value="pencil">Mão Real · Lápis</option>
           <option value="chalk">Mão + Giz</option>
           <option value="minimal-nib">Ponta Minimalista</option>
           <option value="eraser">Borracha</option>

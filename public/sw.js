@@ -1,9 +1,21 @@
-const CACHE_NAME = 'openscribe-v1';
+const CACHE_NAME = 'openscribe-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(['./', './manifest.webmanifest', './favicon.svg']).catch(() => undefined)),
+    caches
+      .open(CACHE_NAME)
+      .then((cache) =>
+        cache.addAll([
+          './',
+          './manifest.webmanifest',
+          './favicon.svg',
+          './hands/hand-pen.png',
+          './hands/hand-pencil.png',
+          './hands/hand-drag.png',
+        ]),
+      )
+      .catch(() => undefined),
   );
 });
 

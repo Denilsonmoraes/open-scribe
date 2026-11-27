@@ -43,6 +43,7 @@ interface AssetSidebarProps {
 const CATEGORIES = [
   'Todos',
   'Ideias & Negócios',
+  'Marketing & Educação',
   'Tech & 3D',
   'Pessoas & Ação',
   'Diagramas & Setas',

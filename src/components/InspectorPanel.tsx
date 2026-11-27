@@ -275,9 +275,9 @@ export function InspectorPanel({
               }
             >
               <option value="inherit">Usar padrão do projeto</option>
-              <option value="realistic-pen">Caneta Fina</option>
-              <option value="marker">Marcador Whiteboard</option>
-              <option value="pencil">Lápis Grafite</option>
+              <option value="realistic-pen">Mão Real + Caneta</option>
+              <option value="marker">Mão Real + Marcador</option>
+              <option value="pencil">Mão Real + Lápis</option>
               <option value="chalk">Giz de Lousa</option>
               <option value="minimal-nib">Ponta Minimalista</option>
               <option value="eraser">Borracha</option>

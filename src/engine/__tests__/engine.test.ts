@@ -201,4 +201,11 @@ describe('Timeline Scheduler & Script Storyboard', () => {
     expect(elements[0].type).toBe('svg');
     expect(elements[1].type).toBe('text');
   });
+
+  it('includes 45+ unique premium SVG assets across all categories', () => {
+    expect(VECTOR_ASSETS.length).toBeGreaterThanOrEqual(45);
+    const ids = new Set(VECTOR_ASSETS.map((a) => a.id));
+    expect(ids.size).toBe(VECTOR_ASSETS.length);
+  });
 });
+

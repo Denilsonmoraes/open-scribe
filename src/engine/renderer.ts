@@ -9,7 +9,8 @@ import type {
   VectorStroke,
 } from '../types/scribe';
 import { sampleStrokeAtLength, totalStrokesLength } from './geometry';
-import { drawAnimatedHand, drawDraggingHand } from './handRenderer';
+import { drawAnimatedHand, drawDraggingHand, preloadHandSprites } from './handRenderer';
+import { renderSynchronizedText } from './textHandwriting';
 import { buildTimelineSchedule, easeInOutCubic, evaluateCameraAtTime, getStageDimensions } from './timeline';
 
 const rasterCache = new Map<string, HTMLImageElement>();
@@ -31,25 +32,24 @@ export function preloadProjectImages(project: ScribeProject): Promise<void> {
   const urls = project.elements
     .map((e) => e.rasterDataUrl)
     .filter((u): u is string => Boolean(u));
-  if (urls.length === 0) return Promise.resolve();
 
-  return Promise.all(
-    urls.map(
-      (url) =>
-        new Promise<void>((resolve) => {
-          const existing = rasterCache.get(url);
-          if (existing && existing.complete) {
-            resolve();
-            return;
-          }
-          const img = new Image();
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-          img.src = url;
-          rasterCache.set(url, img);
-        }),
-    ),
-  ).then(() => undefined);
+  const imagePromises = urls.map(
+    (url) =>
+      new Promise<void>((resolve) => {
+        const existing = rasterCache.get(url);
+        if (existing && existing.complete) {
+          resolve();
+          return;
+        }
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = url;
+        rasterCache.set(url, img);
+      }),
+  );
+
+  return Promise.all([preloadHandSprites(), ...imagePromises]).then(() => undefined);
 }
 
 export function drawBoardBackground(
@@ -122,34 +122,6 @@ export function drawBoardBackground(
   }
 }
 
-function wrapTextLines(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-): string[] {
-  const paragraphs = text.split('\n');
-  const lines: string[] = [];
-  for (const para of paragraphs) {
-    const words = para.split(/\s+/).filter(Boolean);
-    if (words.length === 0) {
-      lines.push('');
-      continue;
-    }
-    let current = words[0];
-    for (let i = 1; i < words.length; i++) {
-      const candidate = `${current} ${words[i]}`;
-      if (ctx.measureText(candidate).width <= maxWidth) {
-        current = candidate;
-      } else {
-        lines.push(current);
-        current = words[i];
-      }
-    }
-    lines.push(current);
-  }
-  return lines.length > 0 ? lines : [''];
-}
-
 function worldToLocalPoint(el: ScribeElement, p: Point2D): Point2D {
   return {
     x: (p.x - 0.5) * el.width,
@@ -167,84 +139,34 @@ function localToWorldPoint(el: ScribeElement, lx: number, ly: number): Point2D {
   };
 }
 
+function localToWorldVector(el: ScribeElement, vx: number, vy: number): Point2D {
+  const rad = (el.rotation * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  return {
+    x: vx * cos - vy * sin,
+    y: vx * sin + vy * cos,
+  };
+}
+
+interface DrawPenOutput {
+  point: Point2D;
+  velocity: Point2D;
+  isLifted: boolean;
+}
+
 function renderTextElement(
   ctx: CanvasRenderingContext2D,
   el: ScribeElement,
   progress: number, // 0..1
-): Point2D | null {
-  const rawText = el.text || 'Seu Texto Aqui';
-  const fontSize = el.fontSize || 42;
-  const fontFamily = el.fontFamily || 'Caveat';
-  const align = el.textAlign || 'center';
-  const lineHeight = fontSize * 1.24;
-
-  ctx.font = `700 ${fontSize}px "${fontFamily}", cursive, sans-serif`;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = align;
-
-  const lines = wrapTextLines(ctx, rawText, Math.max(80, el.width - 16));
-  const totalBlockH = lines.length * lineHeight;
-  const startY = -totalBlockH / 2 + lineHeight / 2;
-  const xAnchor = align === 'left' ? -el.width / 2 + 8 : align === 'right' ? el.width / 2 - 8 : 0;
-
-  const lineWidths = lines.map((l) => Math.max(12, ctx.measureText(l).width));
-  const totalWidth = lineWidths.reduce((a, b) => a + b, 0);
-
-  if (el.textBgColor && el.textBgColor !== 'transparent') {
-    const maxLineW = Math.max(...lineWidths, 48);
-    const padX = 20;
-    const padY = 12;
-    const boxW = Math.min(el.width, maxLineW + padX * 2);
-    const boxH = totalBlockH + padY * 2;
-    const bx = align === 'left' ? -el.width / 2 - 4 : align === 'right' ? el.width / 2 - boxW + 4 : -boxW / 2;
-    ctx.save();
-    ctx.globalAlpha *= Math.min(1, progress * 3);
-    ctx.fillStyle = el.textBgColor;
-    ctx.beginPath();
-    ctx.roundRect(bx, -boxH / 2, boxW, boxH, 12);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  let consumed = 0;
-  let penLocal: Point2D | null = null;
-  const targetCharsWidth = progress * totalWidth;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const lw = lineWidths[i];
-    const ly = startY + i * lineHeight;
-
-    let lineLeft = xAnchor - lw / 2;
-    if (align === 'left') lineLeft = xAnchor;
-    if (align === 'right') lineLeft = xAnchor - lw;
-
-    if (progress >= 1 || consumed + lw <= targetCharsWidth) {
-      ctx.fillStyle = el.strokeColor;
-      ctx.fillText(line, xAnchor, ly);
-      consumed += lw;
-    } else if (targetCharsWidth > consumed) {
-      const localReveal = targetCharsWidth - consumed;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(lineLeft - 6, ly - lineHeight * 0.65, localReveal + 6, lineHeight * 1.3);
-      ctx.clip();
-      ctx.fillStyle = el.strokeColor;
-      ctx.fillText(line, xAnchor, ly);
-      ctx.restore();
-
-      const osc = Math.sin(progress * 42) * (fontSize * 0.12);
-      penLocal = {
-        x: lineLeft + localReveal,
-        y: ly + osc,
-      };
-      break;
-    } else {
-      break;
-    }
-  }
-
-  return penLocal ? localToWorldPoint(el, penLocal.x, penLocal.y) : null;
+): DrawPenOutput | null {
+  const sample = renderSynchronizedText(ctx, el, progress);
+  if (!sample) return null;
+  return {
+    point: localToWorldPoint(el, sample.point.x, sample.point.y),
+    velocity: localToWorldVector(el, sample.velocity.x, sample.velocity.y),
+    isLifted: sample.isLifted,
+  };
 }
 
 function renderVectorElement(
@@ -253,7 +175,7 @@ function renderVectorElement(
   progress: number, // 0..1
   onImageLoad?: () => void,
   isLightPaper = true,
-): Point2D | null {
+): DrawPenOutput | null {
   const strokes = el.strokes;
   const hasRaster = Boolean(el.rasterDataUrl);
   const img = hasRaster && el.rasterDataUrl ? getCachedRasterImage(el.rasterDataUrl, onImageLoad) : null;
@@ -308,14 +230,34 @@ function renderVectorElement(
     ctx.restore();
   }
 
-  // Progressive stroke drawing
-  const strokeProgressEnd = el.fillReveal && (img || el.type === 'svg') ? 0.9 : 1;
+  // Progressive stroke drawing with smooth pen-lift travel between disconnected strokes
+  const strokeProgressEnd = el.fillReveal && (img || el.type === 'svg') ? 0.92 : 1;
   const drawProg = Math.min(1, progress / strokeProgressEnd);
 
-  const totalLen = totalStrokesLength(strokes);
-  const targetLen = drawProg * totalLen;
+  // Build weighted budget: each stroke's arc length + small proportional travel gap to next stroke
+  const strokeLens = strokes.map((s) => Math.max(0.01, s.totalLength));
+  const rawTotalLen = totalStrokesLength(strokes);
+  const gapBudgets: number[] = [];
+  let totalBudget = 0;
+
+  for (let i = 0; i < strokes.length; i++) {
+    totalBudget += strokeLens[i];
+    if (i < strokes.length - 1) {
+      const endPt = strokes[i].points[strokes[i].points.length - 1];
+      const nextPt = strokes[i + 1].points[0];
+      const dist = Math.hypot(nextPt.x - endPt.x, nextPt.y - endPt.y);
+      // Fast, crisp pen-lift glide (capped so travel never exceeds ~12% of total time)
+      const gapCost = dist > 0.015 ? Math.min(rawTotalLen * 0.035, dist * 0.22) : 0;
+      gapBudgets.push(gapCost);
+      totalBudget += gapCost;
+    } else {
+      gapBudgets.push(0);
+    }
+  }
+
+  const targetBudget = drawProg * Math.max(0.0001, totalBudget);
   let acc = 0;
-  let penWorld: Point2D | null = null;
+  let penOut: DrawPenOutput | null = null;
 
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -325,14 +267,15 @@ function renderVectorElement(
 
   for (let sIdx = 0; sIdx < strokes.length; sIdx++) {
     const stroke: VectorStroke = strokes[sIdx];
-    const sLen = Math.max(0.01, stroke.totalLength);
+    const sLen = strokeLens[sIdx];
+    const gapLen = gapBudgets[sIdx];
     ctx.strokeStyle = stroke.color || el.strokeColor;
     ctx.lineWidth = stroke.width ? Math.max(1.5, el.strokeWidth) : el.strokeWidth;
 
     ctx.save();
     ctx.globalAlpha *= rasterLineFade;
 
-    if (acc + sLen <= targetLen || progress >= 1) {
+    if (acc + sLen <= targetBudget || progress >= 1) {
       // Full stroke
       ctx.beginPath();
       const p0 = worldToLocalPoint(el, stroke.points[0]);
@@ -344,10 +287,28 @@ function renderVectorElement(
       ctx.stroke();
       ctx.restore();
       acc += sLen;
-    } else if (targetLen > acc) {
-      // Partial active stroke
-      const localTarget = targetLen - acc;
+
+      // Check if pen is currently gliding across the lift gap to the next stroke
+      if (progress < 1 && drawProg < 1 && gapLen > 0 && targetBudget < acc + gapLen) {
+        const gapT = Math.max(0, Math.min(1, (targetBudget - acc) / gapLen));
+        const eased = easeInOutCubic(gapT);
+        const fromLocal = worldToLocalPoint(el, stroke.points[stroke.points.length - 1]);
+        const toLocal = worldToLocalPoint(el, strokes[sIdx + 1].points[0]);
+        const gx = fromLocal.x + (toLocal.x - fromLocal.x) * eased;
+        const gy = fromLocal.y + (toLocal.y - fromLocal.y) * eased;
+        penOut = {
+          point: localToWorldPoint(el, gx, gy),
+          velocity: localToWorldVector(el, toLocal.x - fromLocal.x, toLocal.y - fromLocal.y),
+          isLifted: true,
+        };
+        break;
+      }
+      acc += gapLen;
+    } else if (targetBudget > acc) {
+      // Partial active stroke: tip is 100% locked onto the exact ink tip
+      const localTarget = targetBudget - acc;
       const sample = sampleStrokeAtLength(stroke, localTarget);
+      const prevSample = sampleStrokeAtLength(stroke, Math.max(0, localTarget - Math.max(0.005, sLen * 0.03)));
 
       ctx.beginPath();
       const p0 = worldToLocalPoint(el, stroke.points[0]);
@@ -357,12 +318,17 @@ function renderVectorElement(
         ctx.lineTo(pt.x, pt.y);
       }
       const tipLocal = worldToLocalPoint(el, sample.point);
+      const prevLocal = worldToLocalPoint(el, prevSample.point);
       ctx.lineTo(tipLocal.x, tipLocal.y);
       ctx.stroke();
       ctx.restore();
 
       if (drawProg < 1) {
-        penWorld = localToWorldPoint(el, tipLocal.x, tipLocal.y);
+        penOut = {
+          point: localToWorldPoint(el, tipLocal.x, tipLocal.y),
+          velocity: localToWorldVector(el, tipLocal.x - prevLocal.x, tipLocal.y - prevLocal.y),
+          isLifted: false,
+        };
       }
       break;
     } else {
@@ -371,12 +337,14 @@ function renderVectorElement(
     }
   }
 
-  return penWorld;
+  return penOut;
 }
 
 interface ElementRenderOutput {
   kind: 'draw' | 'drag';
   point: Point2D;
+  velocity?: Point2D;
+  isLifted?: boolean;
   moveFrom?: MoveDirection;
 }
 
@@ -441,16 +409,23 @@ function renderSingleElement(
   ctx.rotate((el.rotation * Math.PI) / 180);
   ctx.scale(scale, scale);
 
-  let penWorld: Point2D | null = null;
+  let penOut: DrawPenOutput | null = null;
   if (el.type === 'text') {
-    penWorld = renderTextElement(ctx, el, effectiveDraw);
+    penOut = renderTextElement(ctx, el, effectiveDraw);
   } else {
-    penWorld = renderVectorElement(ctx, el, effectiveDraw, onImageLoad, isLightPaper);
+    penOut = renderVectorElement(ctx, el, effectiveDraw, onImageLoad, isLightPaper);
   }
 
   ctx.restore();
   if (el.animationMode === 'move-in') return dragOutput;
-  if (el.animationMode === 'draw' && penWorld) return { kind: 'draw', point: penWorld };
+  if (el.animationMode === 'draw' && penOut) {
+    return {
+      kind: 'draw',
+      point: penOut.point,
+      velocity: penOut.velocity,
+      isLifted: penOut.isLifted,
+    };
+  }
   return null;
 }
 
@@ -499,6 +474,8 @@ export function renderProjectFrame(
   let activeHand: {
     kind: 'draw' | 'drag';
     point: Point2D;
+    velocity?: Point2D;
+    isLifted?: boolean;
     color: string;
     style: HandStyle;
     prog: number;
@@ -538,6 +515,8 @@ export function renderProjectFrame(
         activeHand = {
           kind: handOut.kind,
           point: handOut.point,
+          velocity: handOut.velocity,
+          isLifted: handOut.isLifted,
           color: item.element.strokeColor,
           style: chosenStyle,
           prog,
@@ -557,16 +536,30 @@ export function renderProjectFrame(
     }
   }
 
-  // Animated drawing/dragging hand in screen space
+  // Animated photorealistic drawing/dragging hand in screen space
   if (activeHand && mode !== 'edit' && activeHand.style !== 'none') {
     const sx = width / 2 + (activeHand.point.x - cam.cx) * effectiveZoom;
     const sy = height / 2 + (activeHand.point.y - cam.cy) * effectiveZoom;
     const handScale = Math.max(0.62, Math.min(1.35, width / 1180));
     if (activeHand.kind === 'drag') {
-      drawDraggingHand(ctx, sx, sy, activeHand.moveFrom || 'right', handScale);
+      drawDraggingHand(ctx, sx, sy, activeHand.moveFrom || 'right', handScale, onImageLoad);
     } else {
-      const tilt = Math.sin(activeHand.prog * Math.PI * 16);
-      drawAnimatedHand(ctx, activeHand.style, sx, sy, tilt, activeHand.color, handScale);
+      // Natural velocity-driven wrist tilt (follows actual stroke direction smoothly)
+      const vx = activeHand.velocity?.x ?? 0;
+      const vy = activeHand.velocity?.y ?? 0;
+      const speed = Math.hypot(vx, vy);
+      const naturalTilt = speed > 0.001 ? Math.max(-1, Math.min(1, (vx * 0.55 - vy * 0.45) / (speed + 8))) : 0;
+      drawAnimatedHand(
+        ctx,
+        activeHand.style,
+        sx,
+        sy,
+        naturalTilt,
+        activeHand.color,
+        handScale,
+        Boolean(activeHand.isLifted),
+        onImageLoad,
+      );
     }
   }
 }
