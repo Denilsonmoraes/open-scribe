@@ -15,6 +15,7 @@ import {
   Square,
   SquareStop,
   Undo2,
+  Wand2,
 } from 'lucide-react';
 import type { AspectRatio, BoardTheme, HandStyle, ScribeProject } from '../types/scribe';
 
@@ -37,6 +38,7 @@ interface TopBarProps {
   onNewBlank: () => void;
   onExportJson: () => void;
   onImportJson: (file: File) => void;
+  onOpenAiDirector: () => void;
   onOpenExportModal: () => void;
 }
 
@@ -59,6 +61,7 @@ export function TopBar({
   onNewBlank,
   onExportJson,
   onImportJson,
+  onOpenAiDirector,
   onOpenExportModal,
 }: TopBarProps) {
   const savedLabel =
@@ -230,6 +233,17 @@ export function TopBar({
             />
           </label>
         </div>
+
+        <button
+          id="open-ai-director-btn"
+          type="button"
+          className="btn-ai"
+          onClick={onOpenAiDirector}
+          title="Criar vídeo completo de 5 a 10 min com Google IA + voz natural"
+        >
+          <Wand2 size={15} />
+          <span>Diretor IA</span>
+        </button>
 
         <button
           id="topbar-play-btn"

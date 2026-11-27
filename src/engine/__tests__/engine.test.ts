@@ -11,6 +11,13 @@ import { traceImageDataToStrokes } from '../imageTracer';
 import { generateStoryboardFromScript } from '../scriptGenerator';
 import { parseSvgToStrokes } from '../svgParser';
 import {
+  buildProjectFromAiPlan,
+  encodePcm16ToWavBlob,
+  extractPcm16Samples,
+  resamplePcm16,
+  type AiStoryboardPlan,
+} from '../aiDirector';
+import {
   buildTimelineSchedule,
   computeFitAllCamera,
   evaluateCameraAtTime,
@@ -208,4 +215,46 @@ describe('Timeline Scheduler & Script Storyboard', () => {
     expect(ids.size).toBe(VECTOR_ASSETS.length);
   });
 });
+
+describe('AI Director Engine (5–10 min Storyboard & Gemini PCM/WAV)', () => {
+  it('encodes, extracts, and resamples PCM16/WAV audio cleanly', async () => {
+    const raw = new Int16Array(2400); // 0.1s at 24kHz
+    for (let i = 0; i < raw.length; i++) {
+      raw[i] = Math.round(Math.sin(i * 0.1) * 12000);
+    }
+    const wavBlob = encodePcm16ToWavBlob(raw, 24000);
+    const wavBytes = new Uint8Array(await wavBlob.arrayBuffer());
+    const extracted = extractPcm16Samples(wavBytes);
+    expect(extracted.sampleRate).toBe(24000);
+    expect(extracted.samples.length).toBe(2400);
+    expect(extracted.samples[10]).toBe(raw[10]);
+
+    const resampled = resamplePcm16(extracted.samples, 24000, 16000);
+    expect(resampled.length).toBe(1600);
+  });
+
+  it('builds a 20-scene (~5 min) AI project synced tightly to exact scene audio durations', () => {
+    const scenes = Array.from({ length: 20 }, (_, i) => ({
+      heading: `${i + 1}. Capítulo ${i + 1}`,
+      caption: 'Resumo visual sincronizado com a narração.',
+      narration: 'Texto narrado pela voz natural do Google Gemini.',
+      assetId: i % 2 === 0 ? 'lightbulb' : 'money-bag',
+      animationMode: (i % 5 === 0 ? 'move-in' : 'draw') as 'draw' | 'move-in',
+    }));
+    const plan: AiStoryboardPlan = {
+      title: 'Guia Completo de 5 Minutos',
+      chosenTopic: 'Finanças e Produtividade',
+      boardTheme: 'whiteboard',
+      handStyle: 'realistic-pen',
+      scenes,
+    };
+    const durations = scenes.map(() => 15); // 20 * 15s = 300s (5:00)
+    const project = buildProjectFromAiPlan(plan, durations, null, '16:9');
+    expect(project.elements.length).toBe(40); // 20 SVGs + 20 Texts
+    const { totalDuration } = buildTimelineSchedule(project);
+    expect(totalDuration).toBeGreaterThan(285);
+    expect(totalDuration).toBeLessThan(315);
+  });
+});
+
 

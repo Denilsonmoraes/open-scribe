@@ -1,5 +1,6 @@
 import { PanelLeft, SlidersHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AiDirectorModal } from './components/AiDirectorModal';
 import { AssetSidebar, type SidebarTab } from './components/AssetSidebar';
 import { ExportModal } from './components/ExportModal';
 import { InspectorPanel } from './components/InspectorPanel';
@@ -46,6 +47,7 @@ export default function App() {
   const [playheadTime, setPlayheadTime] = useState(0);
   const [exportOpen, setExportOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
+  const [aiDirectorOpen, setAiDirectorOpen] = useState(false);
 
   const [saveState, setSaveState] = useState<'saved' | 'saving'>('saved');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
@@ -619,6 +621,20 @@ export default function App() {
     }));
   };
 
+  const handleAiProjectReady = async (aiProject: ScribeProject, shouldSave: boolean) => {
+    setProject(aiProject);
+    setHistory([]);
+    setFuture([]);
+    setSelectedId(aiProject.elements[0]?.id ?? null);
+    setEditCamera({ cx: 0, cy: 0, zoom: 1 });
+    setPlayheadTime(0);
+    setIsScrubbing(false);
+    setIsPlaying(false);
+    if (shouldSave) {
+      await persistNow(aiProject);
+    }
+  };
+
   return (
     <div className="studio-app">
       <TopBar
@@ -640,6 +656,10 @@ export default function App() {
         onNewBlank={() => void handleCreateBlank()}
         onExportJson={handleExportJson}
         onImportJson={handleImportJson}
+        onOpenAiDirector={() => {
+          setIsPlaying(false);
+          setAiDirectorOpen(true);
+        }}
         onOpenExportModal={() => {
           setIsPlaying(false);
           setExportOpen(true);
@@ -751,6 +771,21 @@ export default function App() {
       />
 
       {exportOpen && <ExportModal project={project} onClose={() => setExportOpen(false)} />}
+
+      {aiDirectorOpen && (
+        <AiDirectorModal
+          open={aiDirectorOpen}
+          defaultAspectRatio={project.aspectRatio}
+          onClose={() => setAiDirectorOpen(false)}
+          onProjectReady={handleAiProjectReady}
+          onPlayNow={() => {
+            setPlayheadTime(0);
+            setIsScrubbing(false);
+            setIsPlaying(true);
+          }}
+          onOpenExport={() => setExportOpen(true)}
+        />
+      )}
 
       {projectsOpen && (
         <ProjectsModal
